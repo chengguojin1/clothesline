@@ -9,7 +9,7 @@ using Jemur.Interop;
 
 namespace Jemur.Windows;
 
-/// <summary>A click-through copy of a card that follows the cursor while dragging, and falls when let go.</summary>
+/// <summary>A click-through copy of a card that follows the cursor while dragging, falls when let go, or flies between the line and the desktop.</summary>
 internal sealed class GhostWindow : Window
 {
     private const double Pad = 20;
@@ -71,28 +71,44 @@ internal sealed class GhostWindow : Window
         Native.MoveTo(h, w.X, w.Y);
     }
 
+    /// <summary>The card's top-left in physical pixels: where it was shown, or where its flight has got to.</summary>
+    public Point CardPx => _cardPx;
+
+    private EventHandler? _frame;
+    private Action? _landed;
+
     /// <summary>
     /// Carries the card on a short arc to <paramref name="toPx"/> with a small tilt, then closes and calls <paramref name="landed"/>.
+    /// It waits <paramref name="delayMs"/> where it is first (staggered flights).
     /// Moves in physical pixels frame by frame, so it stays right when it crosses monitors with different scaling.
     /// </summary>
-    public void FlyTo(Point toPx, int ms, Action landed)
+    public void FlyTo(Point toPx, int ms, Action landed, int delayMs = 0)
     {
         var from = _cardPx;
         double tilt0 = _tilt.Angle, lift = Math.Min(90, (toPx - from).Length * 0.3);
         var clock = Stopwatch.StartNew();
-        EventHandler? frame = null;
-        frame = (_, _) =>
+        _landed = landed;
+        _frame = (_, _) =>
         {
-            double t = Math.Min(1, clock.Elapsed.TotalMilliseconds / ms);
+            double t = Math.Clamp((clock.Elapsed.TotalMilliseconds - delayMs) / ms, 0, 1);
             double e = t < 0.5 ? 4 * t * t * t : 1 - Math.Pow(-2 * t + 2, 3) / 2; // cubic in-out
             MoveCard(new Point(from.X + (toPx.X - from.X) * e, from.Y + (toPx.Y - from.Y) * e - lift * Math.Sin(Math.PI * t)));
             _tilt.Angle = tilt0 * (1 - e) - 8 * Math.Sin(Math.PI * t);
-            if (t < 1) return;
-            CompositionTarget.Rendering -= frame;
-            Close();
-            landed();
+            if (t >= 1) Finish();
         };
-        CompositionTarget.Rendering += frame;
+        CompositionTarget.Rendering += _frame;
+    }
+
+    /// <summary>Ends a flight at once: closes, and calls its landing unless <paramref name="land"/> is false.</summary>
+    public void Finish(bool land = true)
+    {
+        if (_frame == null) return;
+        CompositionTarget.Rendering -= _frame;
+        _frame = null;
+        var landed = _landed;
+        _landed = null;
+        Close();
+        if (land) landed?.Invoke();
     }
 
     public void Fall()

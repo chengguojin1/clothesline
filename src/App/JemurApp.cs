@@ -170,6 +170,7 @@ internal sealed class JemurApp
     public void SetLifted(bool lifted, bool animate = true)
     {
         if (Settings.Lifted == lifted) return;
+        LandFlights();
         Settings.Lifted = lifted;
         SettingsStore.Save(Settings);
         Line.SetLifted(lifted, animate);
@@ -181,6 +182,97 @@ internal sealed class JemurApp
 
     /// <summary>Anything that hangs a new card first brings the line back out if it was taken in.</summary>
     public void EnsureVisible(bool animate = true) { if (Lifted) SetLifted(false, animate); }
+
+    // ───────────── modes ─────────────
+
+    private const int FlightMs = 380;
+
+    /// <summary>Cards in the air between the line and the desktop during a mode switch.</summary>
+    private readonly Dictionary<HangItem, GhostWindow> _flights = new();
+
+    /// <summary><see cref="Settings.LineMode"/> (every card on the rope) or <see cref="Settings.DesktopMode"/> (every card free on the desktop).</summary>
+    public string Mode => Settings.Mode;
+
+    public bool InDesktopMode => Settings.Mode == Settings.DesktopMode;
+
+    public void ToggleMode() => SetMode(InDesktopMode ? Settings.LineMode : Settings.DesktopMode);
+
+    /// <summary>
+    /// Saves the mode, un-lifts, then flies every card of the active rope between its rope slot and its desktop spot.
+    /// Switching again mid-flight turns the cards round from where they are; nothing is shown twice.
+    /// </summary>
+    public void SetMode(string mode)
+    {
+        if (mode is not (Settings.LineMode or Settings.DesktopMode) || mode == Settings.Mode || _capturing) return;
+        var midAir = _flights.ToDictionary(f => f.Key, f => f.Value.CardPx);
+        foreach (var g in _flights.Values.ToList()) g.Finish(land: false);
+        _flights.Clear();
+
+        Settings.Mode = mode;
+        if (Lifted)
+        {
+            Settings.Lifted = false;
+            Line.SetLifted(false, animate: false);
+            Pins.SetLifted(false, animate: false);
+        }
+        SettingsStore.Save(Settings);
+        _tray?.SetTip(TrayTip());
+        bool play = Motion.Enabled;
+
+        if (InDesktopMode)
+        {
+            // where each card is now: on the rope, or wherever its flight back had got to
+            var from = Library.ItemsOn(ActiveRope).Where(i => Line.CardRect(i) != null)
+                .ToDictionary(i => i, i => midAir.TryGetValue(i, out var p) ? p : DipToPx(Line.CardRect(i)!.Value.TopLeft));
+            Line.ApplyMode(play);
+            Pins.Rebuild(hold: play);
+            if (!play) return;
+            var order = Pins.Windows.OrderBy(w => from.TryGetValue(w.Item, out var p) ? p.X : 0).ToList();
+            int step = LineWindow.Stagger(order.Count);
+            for (int i = 0; i < order.Count; i++)
+            {
+                var w = order[i];
+                if (from.TryGetValue(w.Item, out var p)) Fly(w.Card, p, w.CardPx, step * i, () => Pins.Land(w.Item));
+                else Pins.Land(w.Item);
+            }
+        }
+        else
+        {
+            var from = Pins.Windows.ToDictionary(w => w.Item, w => (w.Card, At: midAir.TryGetValue(w.Item, out var p) ? p : w.CardPx));
+            Line.ApplyMode(play);
+            if (play) // the line shows first; each card waits unseen in its slot until its flight lands
+            {
+                var order = from.Keys.Where(i => Line.CardOf(i) != null).OrderBy(i => Line.SlotOf(i).X).ToList();
+                int step = LineWindow.Stagger(order.Count);
+                for (int i = 0; i < order.Count; i++)
+                {
+                    var item = order[i];
+                    Line.Expect(item);
+                    Fly(from[item].Card, from[item].At, DipToPx(Line.SlotOf(item)), step * i, () => Line.Land(item));
+                }
+            }
+            Pins.Rebuild();
+        }
+    }
+
+    private static Point DipToPx(Point dip) => new(dip.X * PrimaryScale, dip.Y * PrimaryScale);
+
+    /// <summary>A ghost of <paramref name="card"/> waits <paramref name="delayMs"/> at <paramref name="fromPx"/>, then flies to <paramref name="toPx"/>.</summary>
+    private void Fly(CardView card, Point fromPx, Point toPx, int delayMs, Action landed)
+    {
+        var item = card.Item;
+        var ghost = new GhostWindow(card);
+        ghost.ShowAtPx(fromPx, card.Angle);
+        _flights[item] = ghost;
+        ghost.FlyTo(toPx, FlightMs, () => { _flights.Remove(item); landed(); }, delayMs);
+    }
+
+    /// <summary>Lands every card still in the air at once (a lift, a rope switch or a capture comes first).</summary>
+    private void LandFlights()
+    {
+        foreach (var g in _flights.Values.ToList()) g.Finish();
+        _flights.Clear();
+    }
 
     // ───────────── ropes ─────────────
 
@@ -198,12 +290,14 @@ internal sealed class JemurApp
     {
         if (Library.RopeById(ropeId) == null) return;
         if (ropeId == ActiveRope) { EnsureVisible(); Line.HoldOpen(1200); return; }
+        LandFlights();
         Settings.ActiveRope = ropeId;
         SettingsStore.Save(Settings);
         Line.ShowRope(ropeId, animate: true); // while lifted this swaps the cards out of sight; EnsureVisible then hangs the new ones out
         Pins.ShowRope(ropeId, animate: true);
         EnsureVisible();
         _tray?.SetTip(TrayTip());
+        if (InDesktopMode) _tray?.Notify("Jemur", L.F("mode.lineSwitched", RopeName(ropeId))); // no rope tag shows it
         RopeSwitched?.Invoke();
     }
 
@@ -244,8 +338,8 @@ internal sealed class JemurApp
         if (ropeId != ActiveRope)
         {
             var toast = L.F("toast.movedTo", RopeName(ropeId));
-            if (item.Pinned) Pins.SeeOff(item, toast);
-            else Line.SeeOff(item, toast);
+            Pins.SeeOff(item, toast); // whichever shows it
+            Line.SeeOff(item, toast);
         }
         Library.MoveToRope(item, ropeId);
     }
@@ -294,6 +388,7 @@ internal sealed class JemurApp
         Actions.Paste => HangClipboard,
         Actions.Toggle => ToggleLift,
         Actions.NextRope => NextRope,
+        Actions.Mode => ToggleMode,
         _ => () => ShowPanel(),
     };
 
@@ -399,6 +494,7 @@ internal sealed class JemurApp
         try
         {
             _spotlight?.Dismiss();
+            LandFlights();
             if (panelVisible) _panel!.Hide();
             bool lineVisible = Line.IsVisible;
             Line.Hide();
@@ -573,8 +669,8 @@ internal sealed class JemurApp
     /// <summary>Lets the card drop off the line (or the desktop), then moves it to Discarded.</summary>
     public void Discard(HangItem item)
     {
-        if (item.Pinned) Pins.LetGo(item);
-        else Line.LetGo(item);
+        Pins.LetGo(item); // whichever shows it
+        Line.LetGo(item);
         Library.Discard(item);
     }
 
@@ -645,9 +741,9 @@ internal sealed class JemurApp
             }
             m.Items.Add(move);
         }
-        if (!item.Pinned) m.Items.Add(GroupMenuItem(item));
+        if (!InDesktopMode) m.Items.Add(GroupMenuItem(item)); // groups are a rope feature
         m.Items.Add(new Separator());
-        m.Items.Add(Ui.MenuItem(L.T("action.discard"), () => Discard(item), "", item.Pinned ? null : L.T("hint.dragOff"), critical: true));
+        m.Items.Add(Ui.MenuItem(L.T("action.discard"), () => Discard(item), "", InDesktopMode ? null : L.T("hint.dragOff"), critical: true));
 
         Line.MenuOpen = true;
         m.Closed += (_, _) => { Line.MenuOpen = false; if (keyboard) target.Focus(); };
@@ -700,7 +796,7 @@ internal sealed class JemurApp
     public void NewGroup(HangItem item)
     {
         var name = AskGroupName(L.T("group.new").TrimEnd('…', '.', ' '), NextGroupName(item.RopeId ?? Rope.DefaultId));
-        if (name == null || !Library.Items.Contains(item) || item.Pinned) return;
+        if (name == null || !Library.Items.Contains(item) || InDesktopMode) return;
         Line.SettleForGroup(item);
         Library.CreateGroup(item, name);
     }
@@ -747,6 +843,7 @@ internal sealed class JemurApp
         m.Items.Add(Ui.MenuItem(L.T("action.newNote"), NewNote, "", HotkeyText(Actions.Note)));
         m.Items.Add(Ui.MenuItem(L.T("action.paste"), HangClipboard, "", HotkeyText(Actions.Paste)));
         m.Items.Add(Ui.MenuItem(L.T(Lifted ? "action.unlift" : "action.lift"), ToggleLift, "", HotkeyText(Actions.Toggle)));
+        m.Items.Add(Ui.MenuItem(L.T(InDesktopMode ? "mode.toLine" : "mode.toDesktop"), ToggleMode, "\uE718", HotkeyText(Actions.Mode)));
         var lines = Ui.MenuItem(L.T("rope.lines"), () => { }, "");
         AddRopeEntries(lines);
         m.Items.Add(lines);

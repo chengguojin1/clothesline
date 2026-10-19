@@ -162,6 +162,12 @@
   "shortcut.rope": "Next line",
   "shortcut.panel": "Open Jemur",
   "shortcut.mode": "Switch between line and desktop",
+  "mode.toDesktop": "Desktop mode",
+  "mode.toLine": "Line mode",
+  "mode.line": "On the line",
+  "mode.desktop": "Free on the desktop",
+  "mode.lineSwitched": "Line: {0}",
+  "settings.mode": "Cards",
 
   "hotkey.listening": "Press a shortcut…",
   "hotkey.none": "Not set",

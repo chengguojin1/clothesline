@@ -504,6 +504,8 @@ internal sealed class ControlPanel : Window
         list.Children.Add(Ui.SettingsCard("", L.T("settings.language"), L.T("settings.languageDesc"), Ui.DropDown(langs, language, _app.SetLanguage, 210)));
         list.Children.Add(Ui.SettingsCard("", L.T("settings.cardSize"), L.T("settings.cardSizeDesc"),
             Ui.DropDown(new[] { (0, L.T("settings.small")), (1, L.T("settings.medium")), (2, L.T("settings.large")) }, s.CardSize, _app.SetCardSize, 210)));
+        list.Children.Add(Ui.SettingsCard("\uE718", L.T("settings.mode"), null,
+            Ui.DropDown(new[] { (Settings.LineMode, L.T("mode.line")), (Settings.DesktopMode, L.T("mode.desktop")) }, s.Mode, _app.SetMode, 210)));
 
         list.Children.Add(Ui.GroupHeader(L.T("settings.behavior")));
         list.Children.Add(Ui.SettingsCard("", L.T("settings.autoHide"), L.T("settings.autoHideDesc"), Ui.Switch(s.AutoHide, _app.SetAutoHide)));
@@ -513,7 +515,7 @@ internal sealed class ControlPanel : Window
 
         list.Children.Add(Ui.GroupHeader(L.T("settings.shortcuts")));
         var shortcuts = new StackPanel();
-        foreach (var (action, glyph) in new[] { (Actions.Screenshot, ""), (Actions.Note, ""), (Actions.Paste, ""), (Actions.Toggle, ""), (Actions.NextRope, ""), (Actions.Panel, "") })
+        foreach (var (action, glyph) in new[] { (Actions.Screenshot, ""), (Actions.Note, ""), (Actions.Paste, ""), (Actions.Toggle, ""), (Actions.NextRope, ""), (Actions.Mode, "\uE718"), (Actions.Panel, "") })
         {
             Hotkey? current = s.Hotkeys.TryGetValue(action, out var str) && Hotkey.TryParse(str, out var hk) ? hk : null;
             var rec = new HotkeyRecorder(current, h => _app.SetHotkey(action, h), recording => _app.SuspendHotkeys(recording));

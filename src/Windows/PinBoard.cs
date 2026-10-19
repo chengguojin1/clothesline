@@ -6,12 +6,11 @@ using Jemur.UI;
 
 namespace Jemur.Windows;
 
-/// <summary>Owns the <see cref="PinWindow"/>s of the active rope and follows the library, lift, rope switches and captures.</summary>
+/// <summary>In desktop mode, owns a <see cref="PinWindow"/> for every card of the active rope and follows the library, lift, rope switches and captures.</summary>
 internal sealed class PinBoard
 {
     private readonly JemurApp _app;
     private readonly List<PinWindow> _windows = new();
-    private readonly HashSet<HangItem> _held = new();
     private readonly List<PinWindow> _hiddenForCapture = new();
     private string _ropeId;
     private bool _lifted;
@@ -22,46 +21,60 @@ internal sealed class PinBoard
         _ropeId = app.ActiveRope;
         _lifted = app.Lifted;
         AddAll(animate: false);
-        app.Library.Relocated += OnRelocated;
+        app.Library.Added += Follow;
+        app.Library.Relocated += Follow;
         app.Library.Removed += item => { var w = WindowOf(item); if (w != null) { _windows.Remove(w); w.Close(); } };
         app.Library.Updated += item => WindowOf(item)?.Card.RefreshNote();
     }
 
     public PinWindow? WindowOf(HangItem item) => _windows.FirstOrDefault(w => w.Item == item);
 
-    private bool Belongs(HangItem item) => item.Pinned && item.RopeId == _ropeId && _app.Library.Items.Contains(item);
+    public IReadOnlyList<PinWindow> Windows => _windows;
 
-    private void OnRelocated(HangItem item)
+    private bool Belongs(HangItem item) => _app.InDesktopMode && item.RopeId == _ropeId && _app.Library.Items.Contains(item);
+
+    private void Follow(HangItem item)
     {
         var w = WindowOf(item);
         bool on = Belongs(item);
         if (w != null && !on) { _windows.Remove(w); w.Close(); }
-        else if (w == null && on && !_held.Contains(item))
+        else if (w == null && on)
         {
             w = Add(item);
             if (!_lifted) w.DropIn(Motion.Enabled);
         }
     }
 
-    /// <summary>Makes a window for a pin, clamped onto a work area (and saved back if that moved it). Not shown yet.</summary>
+    /// <summary>
+    /// Makes a window for a card. One that was never on the desktop first gets a free spot on the monitor under the cursor.
+    /// A saved spot that is off every screen shows clamped onto one, but stays saved, so replugging a monitor brings it back.
+    /// Not shown yet.
+    /// </summary>
     private PinWindow Add(HangItem item)
     {
         var w = new PinWindow(_app, item);
+        if (!item.Pinned)
+        {
+            Native.GetCursorPos(out var cursor);
+            var r = Native.MonitorAt(cursor, workArea: true);
+            var area = new Rect(r.Left, r.Top, r.Width, r.Height);
+            var taken = _windows.Select(o => new Rect(o.CardPx, o.CardSizePx(o.Scale))).ToList();
+            var free = LineLayout.FreeDesktopSpot(area, w.CardSizePx(Native.ScaleAt(area.TopLeft)), taken);
+            _app.Library.Place(item, free.X, free.Y);
+        }
         var spot = new Point(item.PinLeft, item.PinTop);
-        var size = w.CardSizePx(Native.ScaleAt(spot));
-        var fit = LineLayout.ClampPin(new Rect(spot, size), Native.WorkAreas());
-        if (Math.Abs(fit.X - spot.X) > 0.5 || Math.Abs(fit.Y - spot.Y) > 0.5) _app.Library.MovePin(item, fit.X, fit.Y, item.PinWidth, item.PinHeight);
-        w.PlaceAt(fit);
+        w.PlaceAt(LineLayout.ClampPin(new Rect(spot, w.CardSizePx(Native.ScaleAt(spot))), Native.WorkAreas()));
         _windows.Add(w);
         return w;
     }
 
-    private void AddAll(bool animate)
+    /// <summary>Makes the windows of the active rope; with <paramref name="hold"/> they wait unseen for <see cref="Land"/>.</summary>
+    private void AddAll(bool animate, bool hold = false)
     {
         foreach (var item in _app.Library.Items.Where(Belongs).ToList())
         {
             var w = Add(item);
-            if (!_lifted) w.DropIn(animate);
+            if (!_lifted && !hold) w.DropIn(animate);
         }
     }
 
@@ -73,16 +86,18 @@ internal sealed class PinBoard
         bool play = animate && Motion.Enabled;
         foreach (var w in _windows) w.FadeAway(0, play);
         _windows.Clear();
-        _held.Clear();
         AddAll(play);
     }
 
-    /// <summary>Recreates every pin, e.g. after the card size or language changed.</summary>
-    public void Rebuild()
+    /// <summary>
+    /// Recreates every window, e.g. after the card size, language or mode changed (in line mode that leaves none).
+    /// With <paramref name="hold"/> the new windows wait unseen until their card lands (<see cref="Land"/>).
+    /// </summary>
+    public void Rebuild(bool hold = false)
     {
         foreach (var w in _windows) w.Close();
         _windows.Clear();
-        AddAll(animate: false);
+        AddAll(animate: false, hold);
     }
 
     public void SetLifted(bool lifted, bool animate)
@@ -114,18 +129,13 @@ internal sealed class PinBoard
         _hiddenForCapture.Clear();
     }
 
-    // ───────────── pinning / unpinning ─────────────
+    // ───────────── flights and leaving ─────────────
 
-    /// <summary>Call before <see cref="Library.Pin"/> when the card will fly in: its window waits for <see cref="Land"/>.</summary>
-    public void Hold(HangItem item) => _held.Add(item);
-
-    /// <summary>The flight arrived: the pin window appears and swings.</summary>
+    /// <summary>A card flew in from the line: its waiting window appears and swings.</summary>
     public void Land(HangItem item)
     {
-        _held.Remove(item);
-        if (!Belongs(item) || WindowOf(item) != null) return;
-        var w = Add(item);
-        if (_lifted) return;
+        var w = WindowOf(item);
+        if (w == null || _lifted) return;
         w.DropIn(animate: false);
         w.Kick((Random.Shared.NextDouble() < .5 ? -1 : 1) * 60);
     }

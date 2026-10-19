@@ -180,6 +180,12 @@ internal sealed partial class LineWindow : Window
         return c == null ? null : new Rect(Canvas.GetLeft(c), Canvas.GetTop(c) + (resting ? 0 : c.Slide.Y), c.Width, c.Height);
     }
 
+    /// <summary>
+    /// Top-left of an item's card in its rope slot, in screen DIPs of the primary screen, also while the line is hidden
+    /// (mode switch flights). An item that isn't on the line gets the middle of the rope.
+    /// </summary>
+    public Point SlotOf(HangItem item) => CardRect(item, resting: true)?.TopLeft ?? new Point(LineWidth / 2, RopeY);
+
     /// <summary>A card is flying back from the desktop: it takes its slot at once but stays hidden until <see cref="Land"/>.</summary>
     public Rect? Expect(HangItem item)
     {
@@ -204,7 +210,8 @@ internal sealed partial class LineWindow : Window
 
     // ───────────── cards ─────────────
 
-    private bool OnLine(HangItem item) => item.RopeId == _ropeId && !item.Pinned;
+    /// <summary>In line mode every card of the shown rope hangs on it; in desktop mode none does.</summary>
+    private bool OnLine(HangItem item) => item.RopeId == _ropeId && !_app.InDesktopMode;
 
     private CardView AddCard(HangItem item, bool animate)
     {
@@ -218,7 +225,7 @@ internal sealed partial class LineWindow : Window
         _cards.Add(c);
         _stage.Children.Add(c);
         LayoutCard(c);
-        if (!IsVisible && IsLoaded && !_lifted) Show();
+        if (!IsVisible && IsLoaded && !_lifted && StaysOut) Show();
         if (_lifted) c.Slide.Y = LiftedY;
         else if (!_expanded) c.Slide.Y = CollapsedOffset(c);
         if (animate && !_lifted && Motion.Enabled)
@@ -278,7 +285,7 @@ internal sealed partial class LineWindow : Window
     /// Delay between staggered cards: <paramref name="each"/> ms, squeezed so the whole stagger stays within 300 ms
     /// however many cards hang (a long line still settles in well under a second).
     /// </summary>
-    private static int Stagger(int count, int each = 30) => count <= 0 ? 0 : Math.Min(each, 300 / count);
+    public static int Stagger(int count, int each = 30) => count <= 0 ? 0 : Math.Min(each, 300 / count);
 
     private void OnRelocated(HangItem item)
     {
@@ -308,12 +315,60 @@ internal sealed partial class LineWindow : Window
         HoldOpen(1800);
     }
 
+    private int _modeSeq;
+
+    /// <summary>
+    /// Follows a mode switch. To desktop: the cards leave at once (ghosts fly them off), the rope fades and the window hides.
+    /// To the line: the window shows first with the rope's cards in their slots, and the rope fades in.
+    /// </summary>
+    public void ApplyMode(bool animate)
+    {
+        int seq = ++_modeSeq;
+        double shown = IsVisible ? _stage.Opacity : 0; // an interrupted fade carries on from where it got to
+        DropLeavers();
+        foreach (var c in _cards.ToList()) RemoveCard(c);
+        _stage.BeginAnimation(OpacityProperty, null);
+        _stage.Opacity = 1;
+        if (_app.InDesktopMode)
+        {
+            UpdateTag();
+            if (!animate || shown == 0) { Hide(); return; }
+            var fade = new DoubleAnimation(shown, 0, TimeSpan.FromMilliseconds(260));
+            fade.Completed += (_, _) =>
+            {
+                if (seq != _modeSeq) return; // switched back meanwhile
+                Hide();
+                _stage.BeginAnimation(OpacityProperty, null);
+            };
+            _stage.BeginAnimation(OpacityProperty, fade);
+            return;
+        }
+        if (!_lifted)
+        {
+            _expanded = true;
+            _shrink.Stop();
+            Height = BandHeight;
+            foreach (var t in _labels.Values.Select(l => l.Slide).Append(_tag.Slide)) { t.BeginAnimation(TranslateTransform.YProperty, null); t.Y = 0; }
+            foreach (var r in new UIElement[] { _rope, _ropeShadow, _ropeTwist }) { r.BeginAnimation(OpacityProperty, null); r.Opacity = 1; }
+        }
+        foreach (var i in _app.Library.Items.Where(OnLine)) AddCard(i, animate: false);
+        UpdateTag();
+        SyncGroups(animate: false);
+        if (_lifted || !StaysOut) return;
+        if (!IsVisible) Show();
+        if (animate && shown < 1) _stage.BeginAnimation(OpacityProperty, new DoubleAnimation(shown, 1, TimeSpan.FromMilliseconds(260)));
+        HoldOpen(2400);
+    }
+
     // ───────────── ropes ─────────────
 
     public string RopeId => _ropeId;
 
-    /// <summary>The line stays on screen while the rope has cards, or while there are other ropes to switch to (its tag peeks).</summary>
-    public bool StaysOut => _cards.Count > 0 || _app.Library.Ropes.Count > 1;
+    /// <summary>
+    /// The line stays on screen while the rope has cards, or while there are other ropes to switch to (its tag peeks).
+    /// Never in desktop mode: then the whole window, tag and group labels too, stays hidden.
+    /// </summary>
+    public bool StaysOut => !_app.InDesktopMode && (_cards.Count > 0 || _app.Library.Ropes.Count > 1);
 
     private void UpdateTag(bool name = true)
     {
@@ -408,7 +463,7 @@ internal sealed partial class LineWindow : Window
 
     public void HoldOpen(int ms)
     {
-        if (_lifted) return;
+        if (_lifted || _app.InDesktopMode) return;
         if (!IsVisible && StaysOut) Show();
         _holdOpenUntil = DateTime.Now.AddMilliseconds(ms);
         SetExpanded(true);

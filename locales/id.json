@@ -162,6 +162,12 @@
   "shortcut.rope": "Tali berikutnya",
   "shortcut.panel": "Buka Jemur",
   "shortcut.mode": "Ganti mode jemuran/jepit",
+  "mode.toDesktop": "Mode jepit",
+  "mode.toLine": "Mode jemuran",
+  "mode.line": "Di jemuran",
+  "mode.desktop": "Bebas di desktop",
+  "mode.lineSwitched": "Tali: {0}",
+  "settings.mode": "Letak card",
 
   "hotkey.listening": "Tekan pintasan…",
   "hotkey.none": "Belum diatur",
