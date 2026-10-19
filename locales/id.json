@@ -96,9 +96,6 @@
   "rope.namePrompt": "Nama tali",
   "rope.moveTo": "Pindah ke tali",
   "rope.tagName": "Tali: {0}",
-  "pin.toDesktop": "Jepit di desktop",
-  "pin.back": "Kembalikan ke jemuran",
-  "pin.limit": "Paling banyak 3 jepitan per tali",
   "pin.name": "Dijepit: {0}",
   "group.menu": "Kelompok",
   "group.new": "Kelompok baru…",
@@ -164,6 +161,7 @@
   "shortcut.toggle": "Angkat jemuran / jemur lagi",
   "shortcut.rope": "Tali berikutnya",
   "shortcut.panel": "Buka Jemur",
+  "shortcut.mode": "Ganti mode jemuran/jepit",
 
   "hotkey.listening": "Tekan pintasan…",
   "hotkey.none": "Belum diatur",

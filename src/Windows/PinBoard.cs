@@ -50,7 +50,7 @@ internal sealed class PinBoard
         var spot = new Point(item.PinLeft, item.PinTop);
         var size = w.CardSizePx(Native.ScaleAt(spot));
         var fit = LineLayout.ClampPin(new Rect(spot, size), Native.WorkAreas());
-        if (Math.Abs(fit.X - spot.X) > 0.5 || Math.Abs(fit.Y - spot.Y) > 0.5) _app.Library.MovePin(item, fit.X, fit.Y);
+        if (Math.Abs(fit.X - spot.X) > 0.5 || Math.Abs(fit.Y - spot.Y) > 0.5) _app.Library.MovePin(item, fit.X, fit.Y, item.PinWidth, item.PinHeight);
         w.PlaceAt(fit);
         _windows.Add(w);
         return w;

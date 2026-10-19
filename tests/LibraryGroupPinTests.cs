@@ -51,64 +51,73 @@ public sealed class LibraryGroupPinTests : IDisposable
     }
 
     [Fact]
-    public void Pin_RefusesFourthOnSameRope()
-    {
-        var lib = Loaded();
-        var other = lib.AddRope("B");
-        for (var i = 0; i < 3; i++) Assert.True(lib.Pin(Add(lib), 10 * i, 20));
-        var fourth = Add(lib);
-        Assert.False(lib.Pin(fourth, 1, 1));
-        Assert.False(fourth.Pinned);
-        Assert.Equal(3, lib.PinCount("default"));
-        Assert.True(lib.Pin(Add(lib, other.Id), 1, 1));
-    }
-
-    [Fact]
-    public void Pin_RemovesFromGroupAndSetsFields()
+    public void ModeRoundTrip_KeepsSpotsSizesAndPositions()
     {
         var lib = Loaded();
         var a = Add(lib);
-        var b = Add(lib);
-        lib.JoinGroup(b, lib.CreateGroup(a, "g").Id, 1);
+        a.Position = 0.4;
         var fired = 0;
         lib.Relocated += _ => fired++;
-
-        Assert.True(lib.Pin(a, 5, 6));
-        Assert.Null(lib.GroupOf(a));
-        Assert.Equal((5d, 6d), (a.PinLeft, a.PinTop));
-        Assert.Equal(1, fired);
-        Assert.Equal(new[] { b.Id }, Assert.Single(lib.Groups).ItemIds);
-    }
-
-    [Fact]
-    public void MovePin_SavesWithoutEvent_AndUnpinResetsPosition()
-    {
-        var lib = Loaded();
-        var a = Add(lib);
-        lib.Pin(a, 1, 1);
-        var fired = 0;
-        lib.Relocated += _ => fired++;
-        lib.MovePin(a, 9, 8);
-        Assert.Equal((9d, 8d), (a.PinLeft, a.PinTop));
+        lib.Place(a, 5, 6);
+        lib.MovePin(a, 10, 20, 300, 200);
         Assert.Equal(0, fired);
+        lib.SaveNow();
 
-        lib.Unpin(a);
-        Assert.False(a.Pinned);
-        Assert.Equal(-1, a.Position);
-        Assert.Equal(1, fired);
+        var a2 = Loaded().Items.Single(i => i.Id == a.Id);
+        Assert.Equal((true, 10d, 20d, 300d, 200d, 0.4), (a2.Pinned, a2.PinLeft, a2.PinTop, a2.PinWidth, a2.PinHeight, a2.Position));
     }
 
     [Fact]
-    public void JoinGroup_UnpinsCard()
+    public void MoveToRopeAndGrouping_KeepSpotAndSize()
     {
         var lib = Loaded();
+        var rope = lib.AddRope("B");
         var a = Add(lib);
         var b = Add(lib);
+        lib.Place(a, 1, 2);
+        lib.MovePin(a, 1, 2, 150, 130);
+        lib.Place(b, 3, 4);
         var g = lib.CreateGroup(a, "g");
-        lib.Pin(b, 1, 1);
         lib.JoinGroup(b, g.Id, 1);
-        Assert.False(b.Pinned);
+        Assert.All(new[] { a, b }, i => Assert.True(i.Pinned));
         Assert.Equal(new[] { a.Id, b.Id }, g.ItemIds);
+        lib.MoveToRope(a, rope.Id);
+        Assert.Equal((true, 1d, 2d, 150d, 130d), (a.Pinned, a.PinLeft, a.PinTop, a.PinWidth, a.PinHeight));
+    }
+
+    [Fact]
+    public void Discard_ClearsSpotAndSize()
+    {
+        var lib = Loaded();
+        var p = Add(lib);
+        lib.Place(p, 1, 1);
+        lib.MovePin(p, 1, 1, 200, 150);
+        lib.Discard(p);
+        Assert.Equal((false, 0d, 0d), (p.Pinned, p.PinWidth, p.PinHeight));
+    }
+
+    [Fact]
+    public void Upgrade_PinnedCardsKeepSpotAndPosition()
+    {
+        File.WriteAllText(AppPaths.ItemsFile, """
+            {"Version":2,"Ropes":[{"Id":"default","Name":"J"}],"Groups":[],
+             "Items":[{"Id":"n1","Kind":"Note","Pinned":true,"PinLeft":50,"PinTop":60,"Position":0.3}],"Discarded":[]}
+            """);
+        var i = Assert.Single(Loaded().Items);
+        Assert.Equal((true, 50d, 60d, 0.3, 0d, 0d), (i.Pinned, i.PinLeft, i.PinTop, i.Position, i.PinWidth, i.PinHeight));
+    }
+
+    [Fact]
+    public void DiscardAll_DiscardsEveryLiveCardOnTheRope()
+    {
+        var lib = Loaded();
+        Add(lib);
+        var b = Add(lib);
+        lib.Place(b, 1, 1);
+        var other = Add(lib, lib.AddRope("B").Id);
+        lib.DiscardAll("default");
+        Assert.Equal(new[] { other }, lib.Items);
+        Assert.Equal(2, lib.Discarded.Count);
     }
 
     [Fact]
@@ -161,7 +170,7 @@ public sealed class LibraryGroupPinTests : IDisposable
     }
 
     [Fact]
-    public void Discard_RemovesFromGroupAndUnpins()
+    public void Discard_RemovesFromGroup()
     {
         var lib = Loaded();
         var a = Add(lib);
@@ -172,11 +181,6 @@ public sealed class LibraryGroupPinTests : IDisposable
         Assert.Equal(new[] { b.Id }, g.ItemIds);
         lib.Discard(b);
         Assert.Empty(lib.Groups);
-
-        var p = Add(lib);
-        lib.Pin(p, 1, 1);
-        lib.Discard(p);
-        Assert.False(p.Pinned);
     }
 
     [Fact]
@@ -196,7 +200,7 @@ public sealed class LibraryGroupPinTests : IDisposable
     }
 
     [Fact]
-    public void DeleteRope_DissolvesGroupsAndUnpins()
+    public void DeleteRope_DissolvesGroupsAndKeepsSpots()
     {
         var lib = Loaded();
         var rope = lib.AddRope("B");
@@ -204,11 +208,12 @@ public sealed class LibraryGroupPinTests : IDisposable
         var b = Add(lib, rope.Id);
         lib.JoinGroup(b, lib.CreateGroup(a, "g").Id, 1);
         var p = Add(lib, rope.Id);
-        lib.Pin(p, 1, 1);
+        lib.Place(p, 1, 1);
 
         Assert.True(lib.DeleteRope(rope.Id));
         Assert.Empty(lib.Groups);
-        Assert.All(new[] { a, b, p }, i => { Assert.Equal("default", i.RopeId); Assert.False(i.Pinned); });
+        Assert.All(new[] { a, b, p }, i => { Assert.Equal("default", i.RopeId); });
+        Assert.True(p.Pinned);
     }
 
     [Fact]
@@ -274,7 +279,7 @@ public sealed class LibraryGroupPinTests : IDisposable
         var g = lib.CreateGroup(b, "g");
         lib.JoinGroup(a, g.Id, 0);
         lib.SetFolded(g.Id, true);
-        lib.Pin(p, 12.5, 34.5);
+        lib.Place(p, 12.5, 34.5);
         lib.SaveNow();
 
         var again = Loaded();

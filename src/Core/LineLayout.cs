@@ -68,6 +68,42 @@ internal static class LineLayout
         return x;
     }
 
+    public const double SpotMargin = 32, SpotGap = 16, SpotWrapOffset = 24;
+
+    /// <summary>
+    /// Where a new desktop card goes: cascade from the top-left, row by row, to the first spot that no occupied rectangle
+    /// covers by more than half. When every spot is taken, restart offset by <see cref="SpotWrapOffset"/> until one is free.
+    /// </summary>
+    public static Point FreeDesktopSpot(Rect workArea, Size card, IReadOnlyList<Rect> occupied)
+    {
+        double half = card.Width * card.Height / 2;
+        // ponytail: once the plain grid is full, a cascade step only avoids landing exactly on another card (overlap is the point).
+        bool Free(Rect r, bool stacked) => !occupied.Any(o =>
+        {
+            if (stacked) return Math.Abs(o.X - r.X) < 1 && Math.Abs(o.Y - r.Y) < 1;
+            var i = Rect.Intersect(o, r);
+            return !i.IsEmpty && i.Width * i.Height > half;
+        });
+
+        Point? first = null;
+        for (double off = 0; off == 0 || off < Math.Min(card.Width, card.Height); off += SpotWrapOffset)
+            for (double y = workArea.Top + SpotMargin + off; y + card.Height <= workArea.Bottom - SpotMargin; y += card.Height + SpotGap)
+                for (double x = workArea.Left + SpotMargin + off; x + card.Width <= workArea.Right - SpotMargin; x += card.Width + SpotGap)
+                {
+                    first ??= new Point(x, y);
+                    if (Free(new Rect(x, y, card.Width, card.Height), off > 0)) return new Point(x, y);
+                }
+        return first ?? new Point(workArea.Left + SpotMargin, workArea.Top + SpotMargin);
+    }
+
+    /// <summary>A desktop card's size within its limits: notes 120..640 x 100..640; images 120..960 wide at the given aspect (width / height).</summary>
+    public static Size ClampCardSize(bool image, Size wanted, double aspect)
+    {
+        if (!image) return new Size(Math.Clamp(wanted.Width, 120, 640), Math.Clamp(wanted.Height, 100, 640));
+        var w = Math.Clamp(wanted.Width, 120, 960);
+        return new Size(w, w / aspect);
+    }
+
     /// <summary>Keeps a pin reachable after a monitor change: unchanged if at least half is on one work area.</summary>
     public static Point ClampPin(Rect pin, IReadOnlyList<Rect> workAreas)
     {

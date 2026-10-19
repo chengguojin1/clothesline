@@ -101,4 +101,43 @@ public sealed class LineLayoutTests
         foreach (var scale in new[] { 1.0, 1.5 })
             Assert.Equal(card, LineLayout.CardInWindow(LineLayout.WindowForCard(card, pad, scale), pad, scale));
     }
+
+    private static readonly Rect Area = new(0, 0, 1920, 1040);
+    private static readonly Size Card = new(160, 140);
+
+    [Fact]
+    public void FreeDesktopSpot_FirstSpotIsTopLeftWithMargin() =>
+        Assert.Equal(new Point(32, 32), LineLayout.FreeDesktopSpot(Area, Card, Array.Empty<Rect>()));
+
+    [Fact]
+    public void FreeDesktopSpot_SkipsOccupiedAndWrapsRows()
+    {
+        Assert.Equal(new Point(208, 32), LineLayout.FreeDesktopSpot(Area, Card, new[] { new Rect(32, 32, 160, 140) }));
+        var row = new List<Rect>();
+        for (double x = 32; x + 160 <= 1920 - 32; x += 176) row.Add(new Rect(x, 32, 160, 140));
+        Assert.Equal(new Point(32, 32 + 140 + 16), LineLayout.FreeDesktopSpot(Area, Card, row));
+    }
+
+    [Fact]
+    public void FreeDesktopSpot_WrapsWithOffsetWhenFull()
+    {
+        var all = new List<Rect>();
+        for (double y = 32; y + 140 <= 1040 - 32; y += 156)
+            for (double x = 32; x + 160 <= 1920 - 32; x += 176) all.Add(new Rect(x, y, 160, 140));
+        Assert.Equal(new Point(56, 56), LineLayout.FreeDesktopSpot(Area, Card, all));
+    }
+
+    [Fact]
+    public void ClampCardSize_NoteLimits()
+    {
+        Assert.Equal(new Size(120, 100), LineLayout.ClampCardSize(false, new Size(50, 50), 1));
+        Assert.Equal(new Size(640, 640), LineLayout.ClampCardSize(false, new Size(900, 900), 1));
+    }
+
+    [Fact]
+    public void ClampCardSize_ImageKeepsAspect()
+    {
+        Assert.Equal(new Size(960, 480), LineLayout.ClampCardSize(true, new Size(2000, 5), 2));
+        Assert.Equal(new Size(120, 60), LineLayout.ClampCardSize(true, new Size(10, 5), 2));
+    }
 }

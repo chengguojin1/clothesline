@@ -243,7 +243,7 @@ internal sealed class PinWindow : Window
         {
             _dragging = false;
             _spot = CardPx;
-            _app.Library.MovePin(Item, _spot.X, _spot.Y);
+            _app.Library.MovePin(Item, _spot.X, _spot.Y, Item.PinWidth, Item.PinHeight);
         }
         Card.ReleaseMouseCapture();
     }

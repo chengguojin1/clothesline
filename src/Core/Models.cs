@@ -20,10 +20,13 @@ public sealed class HangItem
     public DateTime? DiscardedAt { get; set; }
     /// <summary>The rope this item hangs on. Null only in files written before ropes existed; Library repairs it on load.</summary>
     public string? RopeId { get; set; }
-    /// <summary>Pinned items sit on the desktop at PinLeft/PinTop instead of on the rope.</summary>
+    /// <summary>True when the item has a saved desktop spot (PinLeft/PinTop, and PinWidth/PinHeight if resized). Line mode ignores it.</summary>
     public bool Pinned { get; set; }
     public double PinLeft { get; set; }
     public double PinTop { get; set; }
+    /// <summary>Desktop size in DIP at card scale 1; 0 means the default size.</summary>
+    public double PinWidth { get; set; }
+    public double PinHeight { get; set; }
 }
 
 /// <summary>A named line that items hang on.</summary>
@@ -55,7 +58,8 @@ public static class Actions
     public const string Toggle = "toggle";
     public const string Panel = "panel";
     public const string NextRope = "rope";
-    public static readonly string[] All = { Screenshot, Note, Paste, Toggle, Panel, NextRope };
+    public const string Mode = "mode";
+    public static readonly string[] All = { Screenshot, Note, Paste, Toggle, Panel, NextRope, Mode };
 }
 
 public sealed class Settings
@@ -74,6 +78,9 @@ public sealed class Settings
     public bool Welcomed { get; set; }
     public string ActiveRope { get; set; } = Rope.DefaultId;
     public bool Lifted { get; set; }
+    public const string LineMode = "line", DesktopMode = "desktop";
+    /// <summary>"line" (cards hang on the rope) or "desktop" (cards float free).</summary>
+    public string Mode { get; set; } = LineMode;
 
     public static Dictionary<string, string> DefaultHotkeys() => new()
     {
@@ -83,6 +90,7 @@ public sealed class Settings
         [Actions.Toggle] = "Alt+Shift+J",
         [Actions.Panel] = "Alt+Shift+P",
         [Actions.NextRope] = "Alt+Shift+G",
+        [Actions.Mode] = "Alt+Shift+M",
     };
 
     /// <summary>Fills in anything missing after loading a file written by an older version.</summary>
@@ -101,6 +109,7 @@ public sealed class Settings
         if (Theme is not ("system" or "light" or "dark")) Theme = "system";
         if (KeepDiscardedDays is not (1 or 7 or 30)) KeepDiscardedDays = 7;
         if (string.IsNullOrWhiteSpace(Language)) Language = "auto";
+        if (Mode is not (LineMode or DesktopMode)) Mode = LineMode;
         if (string.IsNullOrWhiteSpace(ActiveRope)) ActiveRope = Rope.DefaultId;
     }
 

@@ -199,8 +199,8 @@ public sealed class LibraryRopeTests : IDisposable
         lib.Add(pinnedOnA);
 
         lib.DiscardAll(a.Id);
-        Assert.Equal(new[] { onDefault, pinnedOnA }, lib.Items);
-        Assert.Same(onA, Assert.Single(lib.Discarded));
+        Assert.Equal(new[] { onDefault }, lib.Items);
+        Assert.Equal(2, lib.Discarded.Count);
     }
 
     [Fact]

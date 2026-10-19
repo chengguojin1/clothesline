@@ -30,8 +30,6 @@ internal sealed class Library
     private string _dataDir = AppPaths.Data;
     private bool _backupV1;
 
-    public const int MaxPinsPerRope = 3;
-
     public IReadOnlyList<Rope> Ropes => _ropes;
     public IReadOnlyList<CardGroup> Groups => _groups;
     public IEnumerable<HangItem> ItemsOn(string ropeId) => _items.Where(i => i.RopeId == ropeId);
@@ -183,6 +181,7 @@ internal sealed class Library
         if (!_items.Remove(item)) return;
         LeaveGroupQuietly(item);
         item.Pinned = false;
+        item.PinWidth = item.PinHeight = 0;
         item.Position = -1;
         item.DiscardedAt = DateTime.Now;
         _discarded.Insert(0, item);
@@ -202,10 +201,10 @@ internal sealed class Library
         ScheduleSave();
     }
 
-    /// <summary>Discards the unpinned items of one rope.</summary>
+    /// <summary>Discards every live item of one rope.</summary>
     public void DiscardAll(string ropeId)
     {
-        foreach (var i in _items.Where(i => i.RopeId == ropeId && !i.Pinned).ToList()) Discard(i);
+        foreach (var i in _items.Where(i => i.RopeId == ropeId).ToList()) Discard(i);
     }
 
     // ───────────── ropes ─────────────
@@ -254,42 +253,29 @@ internal sealed class Library
     {
         LeaveGroupQuietly(item);
         item.RopeId = ropeId;
-        item.Pinned = false;
         item.Position = -1;
         Relocated?.Invoke(item);
     }
 
-    // ───────────── pins ─────────────
+    // ───────────── desktop spots ─────────────
 
-    public int PinCount(string ropeId) => _items.Count(i => i.Pinned && i.RopeId == ropeId);
-
-    /// <summary>Pins a card to the desktop. False when its rope already has <see cref="MaxPinsPerRope"/> pins.</summary>
-    public bool Pin(HangItem item, double left, double top)
+    /// <summary>Gives a card its first desktop spot. Silent: the view is already there.</summary>
+    public void Place(HangItem item, double left, double top)
     {
-        if (!item.Pinned && PinCount(item.RopeId ?? Rope.DefaultId) >= MaxPinsPerRope) return false;
-        LeaveGroupQuietly(item);
         item.Pinned = true;
-        item.PinLeft = left;
-        item.PinTop = top;
-        Relocated?.Invoke(item);
-        Commit();
-        return true;
-    }
-
-    /// <summary>Remembers where a pinned card was dragged. Silent: the view is already there.</summary>
-    public void MovePin(HangItem item, double left, double top)
-    {
         item.PinLeft = left;
         item.PinTop = top;
         ScheduleSave();
     }
 
-    public void Unpin(HangItem item)
+    /// <summary>Remembers where a desktop card was dragged or resized. Silent: the view is already there.</summary>
+    public void MovePin(HangItem item, double left, double top, double width, double height)
     {
-        item.Pinned = false;
-        item.Position = -1;
-        Relocated?.Invoke(item);
-        Commit();
+        item.PinLeft = left;
+        item.PinTop = top;
+        item.PinWidth = width;
+        item.PinHeight = height;
+        ScheduleSave();
     }
 
     // ───────────── groups ─────────────
@@ -299,7 +285,6 @@ internal sealed class Library
     public CardGroup CreateGroup(HangItem first, string name)
     {
         LeaveGroupQuietly(first);
-        first.Pinned = false;
         var g = new CardGroup { RopeId = first.RopeId ?? Rope.DefaultId, Name = name, Position = first.Position, ItemIds = { first.Id } };
         _groups.Add(g);
         Relocated?.Invoke(first);
@@ -313,7 +298,6 @@ internal sealed class Library
         var g = _groups.FirstOrDefault(x => x.Id == groupId);
         if (g == null || g.RopeId != item.RopeId) return;
         if (!g.ItemIds.Remove(item.Id)) LeaveGroupQuietly(item); // already a member: just reordering
-        item.Pinned = false;
         g.ItemIds.Insert(Math.Clamp(index, 0, g.ItemIds.Count), item.Id);
         Relocated?.Invoke(item);
         Commit();

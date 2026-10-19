@@ -601,54 +601,6 @@ internal sealed class JemurApp
         return new Point((p.X + size.Width / 2) / PrimaryScale, (p.Y + size.Height / 2) / PrimaryScale);
     }
 
-    public bool CanPin(HangItem item) => item.Pinned || Library.PinCount(item.RopeId ?? Rope.DefaultId) < Library.MaxPinsPerRope;
-
-    /// <summary>
-    /// Takes a card off the line onto the desktop. It flies on a short arc to <paramref name="atPx"/> (the card's top-left
-    /// in physical pixels), or the first time to 200 DIP below its spot on the line, else to where it was pinned before.
-    /// With <paramref name="fly"/> false it appears there at once and swings (pinned from the spotlight).
-    /// </summary>
-    public void PinToDesktop(HangItem item, Point? atPx = null, bool fly = true)
-    {
-        if (item.Pinned || !Library.Items.Contains(item) || !CanPin(item)) return;
-        EnsureVisible(animate: false); // a pin made while lifted would be hidden too; out at once so the flight starts from rest
-        if (Line.CardRect(item) is not { } r) return;
-        double s = PrimaryScale;
-        var spot = atPx
-            ?? (item.PinLeft != 0 || item.PinTop != 0 ? new Point(item.PinLeft, item.PinTop) : LineLayout.FirstPinSpot(Line.CardRect(item, resting: true)!.Value.TopLeft, s));
-        spot = LineLayout.ClampPin(new Rect(spot, new Size(r.Width * s, r.Height * s)), Native.WorkAreas());
-
-        GhostWindow? ghost = null;
-        if (fly && Motion.Enabled && Line.IsVisible && !Lifted)
-        {
-            var card = Line.CardOf(item)!;
-            ghost = new GhostWindow(card);
-            ghost.ShowAtPx(new Point(r.X * s, r.Y * s), card.Angle);
-            Pins.Hold(item); // its pin window waits until the flight lands
-        }
-        if (!Library.Pin(item, spot.X, spot.Y)) { ghost?.Close(); Pins.Land(item); return; }
-        ghost?.FlyTo(spot, 380, () => Pins.Land(item));
-    }
-
-    /// <summary>Back on the line: the pin flies back to a free spot on the rope and swings.</summary>
-    public void UnpinToLine(HangItem item)
-    {
-        if (!item.Pinned) return;
-        EnsureVisible(animate: false); // otherwise the card would land on a line that is taken in
-        var pin = Pins.WindowOf(item);
-        GhostWindow? ghost = null;
-        if (pin is { IsVisible: true } && Motion.Enabled && !Lifted)
-        {
-            ghost = new GhostWindow(pin.Card);
-            ghost.ShowAtPx(pin.CardPx, pin.Card.Angle);
-        }
-        Library.Unpin(item); // the pin window closes and the card takes a slot on the line
-        if (ghost == null) return;
-        if (Line.Expect(item) is not { } r) { ghost.Close(); return; }
-        double s = PrimaryScale;
-        ghost.FlyTo(new Point(r.X * s, r.Y * s), 380, () => Line.Land(item));
-    }
-
     // ───────────── menus ─────────────
 
     public void ShowItemMenu(HangItem item, FrameworkElement target, bool keyboard = false)
@@ -682,7 +634,6 @@ internal sealed class JemurApp
             }
         }
         m.Items.Add(new Separator());
-        m.Items.Add(PinMenuItem(item));
         var others = Library.Ropes.Where(r => r.Id != item.RopeId).ToList();
         if (others.Count > 0)
         {
@@ -702,20 +653,6 @@ internal sealed class JemurApp
         m.Closed += (_, _) => { Line.MenuOpen = false; if (keyboard) target.Focus(); };
         if (keyboard) m.Opened += (_, _) => ((MenuItem)m.Items[0]).Focus();
         m.IsOpen = true;
-    }
-
-    /// <summary>Pin to desktop (disabled at the limit, with a tooltip saying why), or Back on the line for a pin.</summary>
-    private MenuItem PinMenuItem(HangItem item)
-    {
-        if (item.Pinned) return Ui.MenuItem(L.T("pin.back"), () => UnpinToLine(item), "");
-        var mi = Ui.MenuItem(L.T("pin.toDesktop"), () => PinToDesktop(item), "");
-        if (!CanPin(item))
-        {
-            mi.IsEnabled = false;
-            mi.ToolTip = L.T("pin.limit");
-            ToolTipService.SetShowOnDisabled(mi, true);
-        }
-        return mi;
     }
 
     // ───────────── groups ─────────────

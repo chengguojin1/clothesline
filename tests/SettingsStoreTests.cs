@@ -96,6 +96,21 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Normalize_RepairsModeAndAddsModeShortcut()
+    {
+        File.WriteAllText(AppPaths.SettingsFile, """{"Mode":"x","Hotkeys":{"note":"Ctrl+Alt+N"}}""");
+        var actual = SettingsStore.Load();
+        Assert.Equal("line", actual.Mode);
+        Assert.Equal("Alt+Shift+M", actual.Hotkeys[Actions.Mode]);
+
+        File.WriteAllText(AppPaths.SettingsFile, """{"Mode":"desktop"}""");
+        Assert.Equal(Settings.DesktopMode, SettingsStore.Load().Mode);
+
+        File.WriteAllText(AppPaths.SettingsFile, """{"Hotkeys":{"note":"shift+alt+m"}}""");
+        Assert.Equal("", SettingsStore.Load().Hotkeys[Actions.Mode]);
+    }
+
+    [Fact]
     public void Normalize_KeepsLifted()
     {
         File.WriteAllText(AppPaths.SettingsFile, """{"Lifted":true}""");

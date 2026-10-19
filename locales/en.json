@@ -96,9 +96,6 @@
   "rope.namePrompt": "Line name",
   "rope.moveTo": "Move to line",
   "rope.tagName": "Line: {0}",
-  "pin.toDesktop": "Pin to desktop",
-  "pin.back": "Back on the line",
-  "pin.limit": "Up to 3 pins per line",
   "pin.name": "Pinned: {0}",
   "group.menu": "Group",
   "group.new": "New group…",
@@ -164,6 +161,7 @@
   "shortcut.toggle": "Take everything in / hang it back out",
   "shortcut.rope": "Next line",
   "shortcut.panel": "Open Jemur",
+  "shortcut.mode": "Switch between line and desktop",
 
   "hotkey.listening": "Press a shortcut…",
   "hotkey.none": "Not set",

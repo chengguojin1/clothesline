@@ -101,7 +101,6 @@ internal sealed class SpotlightWindow : Window
         var footer = new DockPanel { Margin = new Thickness(0, 14, 0, 0) };
         var actions = new StackPanel { Orientation = Orientation.Horizontal };
         actions.Children.Add(PaperButton("", L.T("action.copy"), () => { if (_app.Copy(_item)) Flash(L.T("toast.copied")); }));
-        actions.Children.Add(PinButton(PaperButton));
         actions.Children.Add(PaperButton("", L.T("action.discard"), () => Dismiss(() => _app.Discard(_item))));
         DockPanel.SetDock(actions, Dock.Right);
         footer.Children.Add(actions);
@@ -155,35 +154,6 @@ internal sealed class SpotlightWindow : Window
         holder.Children.Add(BigPin());
         _card = holder;
         return holder;
-    }
-
-    /// <summary>
-    /// Pin to desktop: the spotlight closes and the card is pinned with its top-left where this card was.
-    /// On a pin it reads Back on the line. At the pin limit it is disabled and says why.
-    /// </summary>
-    private Button PinButton(Func<string, string, Action, Button> make)
-    {
-        if (_item.Pinned) return make("", L.T("pin.back"), () => Dismiss(() => _app.UnpinToLine(_item)));
-        var b = make("", L.T("pin.toDesktop"), PinHere);
-        if (!_app.CanPin(_item))
-        {
-            b.IsEnabled = false;
-            b.Opacity = 0.45;
-            b.ToolTip = L.T("pin.limit");
-            ToolTipService.SetShowOnDisabled(b, true);
-        }
-        return b;
-    }
-
-    private void PinHere()
-    {
-        if (_closing || _card == null) return;
-        var at = _card.PointToScreen(new Point(0, 0)); // physical pixels
-        _closing = true;
-        _ready = false;
-        Close();
-        Finished?.Invoke(_item);
-        _app.PinToDesktop(_item, at, fly: false);
     }
 
     private static readonly Brush InkFaint = Theme.Freeze(new SolidColorBrush(Color.FromArgb(0x8C, 0x33, 0x2C, 0x1E)));
@@ -311,7 +281,6 @@ internal sealed class SpotlightWindow : Window
         add("", L.T("action.showInFolder"), () => { _app.ShowInFolder(_item); Dismiss(); });
         var sep = new Border { Width = 1, Height = 20, Margin = new Thickness(6, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
         sep.SetResourceReference(Border.BackgroundProperty, "J.Divider");
-        bar.Children.Add(PinButton((glyph, text, a) => { var b = Ui.Button(text, a, Ui.Kind.Subtle, glyph); b.Margin = new Thickness(2, 0, 2, 0); return b; }));
         bar.Children.Add(sep);
         add("", L.T("action.discard"), () => Dismiss(() => _app.Discard(_item)), gesture: "Del");
 
