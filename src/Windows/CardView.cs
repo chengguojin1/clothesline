@@ -35,9 +35,16 @@ internal sealed class CardView : Grid
     private readonly Border _toast;
     private readonly TextBlock _toastText;
 
-    public CardView(HangItem item, bool thumbnail = true)
+    private readonly bool _desktop;
+    private double _aspect;
+
+    /// <summary>True for a card on the desktop, which can have its own size (<see cref="HangItem.PinWidth"/>/<see cref="HangItem.PinHeight"/>).</summary>
+    public bool Desktop => _desktop;
+
+    public CardView(HangItem item, bool thumbnail = true, bool desktop = false)
     {
         Item = item;
+        _desktop = desktop;
         RenderTransformOrigin = new Point(0.5, 0);
         var tg = new TransformGroup();
         tg.Children.Add(Tilt);
@@ -68,6 +75,7 @@ internal sealed class CardView : Grid
             _paper.Padding = new Thickness(11, 12, 11, 10);
             Width = Math.Round(138 * Scale);
             _paper.Height = Math.Round(120 * Scale);
+            ApplySavedSize();
             _noteText = new TextBlock
             {
                 FontFamily = Theme.Hand, FontSize = Math.Round(12.5 * Math.Sqrt(Scale) * 2) / 2, TextWrapping = TextWrapping.Wrap,
@@ -130,24 +138,66 @@ internal sealed class CardView : Grid
         return pin;
     }
 
-    /// <summary>Decodes only as many pixels as the card shows (×2 for high-DPI), never the full screenshot.</summary>
+    /// <summary>The unscaled size this desktop card was resized to, or null for the default.</summary>
+    private Size? Custom => _desktop && Item.PinWidth > 0 && Item.PinHeight > 0 ? new Size(Item.PinWidth, Item.PinHeight) : null;
+
+    /// <summary>Width over height of the screenshot; 16:9 when it can't be read.</summary>
+    public double Aspect
+    {
+        get
+        {
+            if (_aspect > 0) return _aspect;
+            try { var (pw, ph) = Images.Size(Item.File!); _aspect = pw > 0 && ph > 0 ? pw / (double)ph : 16 / 9.0; }
+            catch { _aspect = 16 / 9.0; }
+            return _aspect;
+        }
+    }
+
+    /// <summary>The paper area as shown: the image for a screenshot, the whole sheet for a note.</summary>
+    public Size PaperSize => _image != null ? new Size(_image.Width, _image.Height) : new Size(Width, _paper.Height);
+
+    /// <summary>Sets the paper area in DIPs. A note keeps its font and shows more or less text; a screenshot scales without being decoded again.</summary>
+    public void SetPaperSize(Size dip)
+    {
+        double w = Math.Round(dip.Width), h = Math.Round(dip.Height);
+        if (_image != null) { _image.Width = w; _image.Height = h; Width = w + 12; _paper.Height = h + 21; }
+        else { Width = w; _paper.Height = h; }
+        Height = TotalHeight;
+    }
+
+    /// <summary>Puts the paper at its saved desktop size, or the default one.</summary>
+    public void ApplySavedSize()
+    {
+        if (_image != null) ReloadImage();
+        else SetPaperSize(Custom is { } c ? LineLayout.ShownSize(c, Scale) : new Size(138 * Scale, 120 * Scale));
+    }
+
+    /// <summary>Lays the screenshot out at its default or saved desktop size, then decodes only as many pixels as it shows (×2 for high-DPI), never the full file.</summary>
     public void ReloadImage()
     {
         if (_image == null || Item.File == null) return;
         try
         {
-            double maxW = 156 * Scale, maxH = 112 * Scale;
-            var (pw, ph) = Images.Size(Item.File);
-            double ar = pw > 0 && ph > 0 ? pw / (double)ph : 16 / 9.0;
-            double w = maxW, h = w / ar;
-            if (h > maxH) { h = maxH; w = h * ar; }
-            w = Math.Round(Math.Max(w, 64)); h = Math.Round(Math.Max(h, 48));
-            _image.Source = Images.Thumbnail(Item.File, (int)(w * 2));
-            _image.Width = w; _image.Height = h;
-            Width = w + 12;
-            _paper.Height = h + 21;
-            Height = TotalHeight;
+            double ar = Aspect, w, h;
+            if (Custom is { } c) { w = Math.Round(c.Width * Scale); h = Math.Round(w / ar); }
+            else
+            {
+                double maxW = 156 * Scale, maxH = 112 * Scale;
+                w = maxW; h = w / ar;
+                if (h > maxH) { h = maxH; w = h * ar; }
+                w = Math.Round(Math.Max(w, 64)); h = Math.Round(Math.Max(h, 48));
+            }
+            SetPaperSize(new Size(w, h));
+            ReloadImage((int)(w * 2));
         }
+        catch (Exception ex) { Log.Warn($"Thumbnail failed for {Item.File}", ex); }
+    }
+
+    /// <summary>Decodes the screenshot at a width in pixels, without touching the layout (after a resize ends).</summary>
+    public void ReloadImage(int decodeWidthPx)
+    {
+        if (_image == null || Item.File == null) return;
+        try { _image.Source = Images.Thumbnail(Item.File, decodeWidthPx); }
         catch (Exception ex) { Log.Warn($"Thumbnail failed for {Item.File}", ex); }
     }
 

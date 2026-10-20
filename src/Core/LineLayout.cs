@@ -100,9 +100,16 @@ internal static class LineLayout
     public static Size ClampCardSize(bool image, Size wanted, double aspect)
     {
         if (!image) return new Size(Math.Clamp(wanted.Width, 120, 640), Math.Clamp(wanted.Height, 100, 640));
+        if (!(aspect > 0)) aspect = 16 / 9.0; // unknown or broken image size
         var w = Math.Clamp(wanted.Width, 120, 960);
         return new Size(w, w / aspect);
     }
+
+    /// <summary>A stored (unscaled) desktop size as shown at a card-size scale, in whole DIPs.</summary>
+    public static Size ShownSize(Size stored, double scale) => new(Math.Round(stored.Width * scale), Math.Round(stored.Height * scale));
+
+    /// <summary>A shown size back to the unscaled size that is stored.</summary>
+    public static Size StoredSize(Size shown, double scale) => new(shown.Width / scale, shown.Height / scale);
 
     /// <summary>Keeps a pin reachable after a monitor change: unchanged if at least half is on one work area.</summary>
     public static Point ClampPin(Rect pin, IReadOnlyList<Rect> workAreas)

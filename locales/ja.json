@@ -32,6 +32,7 @@
   "hint.hold": "長押し",
   "hint.dragOff": "外へドラッグ",
   "kind.screenshot": "スクリーンショット",
+  "card.resize": "サイズ変更",
   "kind.note": "メモ",
   "note.empty": "空のメモ",
   "note.placeholder": "ここに入力…",

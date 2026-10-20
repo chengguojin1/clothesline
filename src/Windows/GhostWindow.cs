@@ -26,7 +26,7 @@ internal sealed class GhostWindow : Window
         ResizeMode = ResizeMode.NoResize;
         IsHitTestVisible = false;
 
-        var view = new CardView(source.Item) { IsHitTestVisible = false, Opacity = 0.94 };
+        var view = new CardView(source.Item, desktop: source.Desktop) { IsHitTestVisible = false, Opacity = 0.94 };
         var host = new Grid { Margin = new Thickness(Pad), RenderTransformOrigin = new Point(0.5, 0), RenderTransform = _tilt };
         host.Children.Add(view);
         Content = host;

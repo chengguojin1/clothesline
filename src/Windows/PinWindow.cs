@@ -25,7 +25,8 @@ internal sealed class PinWindow : Window
 
     private readonly JemurApp _app;
     private readonly Grid _root = new();
-    private readonly double _padX;
+    private double _padX;
+    private readonly ResizeGrip _grip = new();
     private readonly DispatcherTimer _hold;
     private Point _spot;
     private int _fadeSeq;
@@ -37,6 +38,11 @@ internal sealed class PinWindow : Window
 
     // physics
     private bool _animating;
+
+    // resize (physical pixels for the cursor, DIPs for sizes)
+    private bool _resizing, _resized;
+    private Native.POINT _resizeCursor;
+    private Size _resizeFrom, _resizeStored;
     private TimeSpan _lastFrame;
 
     public CardView Card { get; }
@@ -45,10 +51,10 @@ internal sealed class PinWindow : Window
     public PinWindow(JemurApp app, HangItem item)
     {
         _app = app;
-        Card = new CardView(item) { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+        Card = new CardView(item, desktop: true) { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
         // Room on each side for the card's corner at the widest swing, so the pendulum never clips.
-        _padX = Math.Ceiling(Math.Sin(MaxSwing * Math.PI / 180) * Card.Height) + 8;
-        Card.Margin = new Thickness(_padX, PadTop, _padX, PadBottom);
+        SetPad();
+        Card.Children.Add(_grip);
         _root.Children.Add(Card);
         Content = _root;
 
@@ -73,8 +79,22 @@ internal sealed class PinWindow : Window
         Card.PreviewMouseMove += Move;
         Card.PreviewMouseLeftButtonUp += Up;
         Card.LostMouseCapture += (_, _) => { if (_pressed) EndPress(); };
+        Card.MouseEnter += (_, _) => _grip.Opacity = 1;
+        Card.MouseLeave += (_, _) => { if (!_resizing) _grip.Opacity = 0; };
+        _grip.PreviewMouseLeftButtonDown += GripDown;
+        _grip.DragStarted += (_, _) => ResizeStart();
+        _grip.DragDelta += (_, _) => ResizeMove();
+        _grip.DragCompleted += (_, _) => ResizeEnd();
+        SizeChanged += (_, _) => { if (_resizing) PlaceAt(_spot); }; // keep the card's top-left still while the window grows
         Card.MouseEnter += (_, _) => { if (!_pressed) Kick((Random.Shared.NextDouble() < .5 ? -1 : 1) * 26); };
         Card.MouseRightButtonUp += (_, e) => { _app.ShowItemMenu(Item, Card); e.Handled = true; };
+    }
+
+    /// <summary>Room on each side for the card's corner at the widest swing, so the pendulum never clips.</summary>
+    private void SetPad()
+    {
+        _padX = Math.Ceiling(Math.Sin(MaxSwing * Math.PI / 180) * Card.Height) + 8;
+        Card.Margin = new Thickness(_padX, PadTop, _padX, PadBottom);
     }
 
     private static string ItemName(HangItem item) =>
@@ -195,6 +215,7 @@ internal sealed class PinWindow : Window
 
     private void Down(object sender, MouseButtonEventArgs e)
     {
+        if (ReferenceEquals(e.OriginalSource, _grip)) return; // the grip resizes; it must not drag, hold or click the card
         Native.GetCursorPos(out _pressCursor);
         _lastCursor = _pressCursor;
         _pressCard = CardPx;
@@ -246,6 +267,60 @@ internal sealed class PinWindow : Window
             _app.Library.MovePin(Item, _spot.X, _spot.Y, Item.PinWidth, Item.PinHeight);
         }
         Card.ReleaseMouseCapture();
+    }
+
+    // ───────────── resize ─────────────
+
+    /// <summary>Double-click resets to the default size.</summary>
+    private void GripDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount < 2) return;
+        e.Handled = true;
+        _app.Library.MovePin(Item, _spot.X, _spot.Y, 0, 0);
+        Card.ApplySavedSize();
+        SettleSize();
+    }
+
+    /// <summary>After the card's size changed: room for its swing, and its top-left back where it was.</summary>
+    private void SettleSize()
+    {
+        var spot = _spot;
+        SetPad();
+        PlaceAt(spot);
+    }
+
+    private void ResizeStart()
+    {
+        Native.GetCursorPos(out _resizeCursor);
+        _spot = CardPx;
+        _resizeFrom = Card.PaperSize;
+        _resizeStored = LineLayout.StoredSize(_resizeFrom, CardView.Scale);
+        _resizing = true;
+        _resized = false;
+        _grip.Opacity = 1;
+    }
+
+    /// <summary>Live: only the window and paper change, nothing is decoded.</summary>
+    private void ResizeMove()
+    {
+        if (!_resizing) return;
+        Native.GetCursorPos(out var p);
+        double s = Scale;
+        var wanted = new Size(_resizeFrom.Width + (p.X - _resizeCursor.X) / s, _resizeFrom.Height + (p.Y - _resizeCursor.Y) / s);
+        _resizeStored = LineLayout.ClampCardSize(Item.Kind == ItemKind.Image, LineLayout.StoredSize(wanted, CardView.Scale), Card.Aspect);
+        Card.SetPaperSize(LineLayout.ShownSize(_resizeStored, CardView.Scale));
+        _resized = true;
+    }
+
+    private void ResizeEnd()
+    {
+        if (!_resizing) return;
+        _resizing = false;
+        if (!Card.IsMouseOver) _grip.Opacity = 0;
+        if (!_resized) return;
+        _app.Library.MovePin(Item, _spot.X, _spot.Y, _resizeStored.Width, _resizeStored.Height);
+        if (Item.Kind == ItemKind.Image) Card.ReloadImage((int)(Card.PaperSize.Width * 2));
+        SettleSize();
     }
 
     private void OnHold()

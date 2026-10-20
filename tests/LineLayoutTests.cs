@@ -140,4 +140,25 @@ public sealed class LineLayoutTests
         Assert.Equal(new Size(960, 480), LineLayout.ClampCardSize(true, new Size(2000, 5), 2));
         Assert.Equal(new Size(120, 60), LineLayout.ClampCardSize(true, new Size(10, 5), 2));
     }
+
+    [Fact]
+    public void ClampCardSize_BadAspectFallsBack()
+    {
+        Assert.Equal(new Size(160, 90), LineLayout.ClampCardSize(true, new Size(160, 5), 0));
+        Assert.Equal(new Size(160, 90), LineLayout.ClampCardSize(true, new Size(160, 5), double.NaN));
+    }
+
+    [Theory]
+    [InlineData(0.85)]
+    [InlineData(1.0)]
+    [InlineData(1.22)]
+    public void ShownSize_ScalesStoredAndRoundTrips(double scale)
+    {
+        var stored = new Size(200, 150);
+        var shown = LineLayout.ShownSize(stored, scale);
+        Assert.Equal(new Size(Math.Round(200 * scale), Math.Round(150 * scale)), shown);
+        var back = LineLayout.StoredSize(shown, scale);
+        Assert.InRange(back.Width, 200 - 0.5 / scale, 200 + 0.5 / scale);
+        Assert.InRange(back.Height, 150 - 0.5 / scale, 150 + 0.5 / scale);
+    }
 }
