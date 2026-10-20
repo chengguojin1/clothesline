@@ -8,7 +8,7 @@
     <RootNamespace>Jemur</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\jemur.ico</ApplicationIcon>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Product>Jemur</Product>
     <Description>Hang screenshots and notes on a clothesline across the top of your screen.</Description>
     <!-- Only ship English framework resources; our own UI strings live in /locales. -->

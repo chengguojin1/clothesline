@@ -154,7 +154,7 @@ internal sealed class CardView : Grid
     }
 
     /// <summary>The paper area as shown: the image for a screenshot, the whole sheet for a note.</summary>
-    public Size PaperSize => _image != null ? new Size(_image.Width, _image.Height) : new Size(Width, _paper.Height);
+    public Size PaperSize => _image != null ? new Size(double.IsNaN(_image.Width) ? 138 * Scale : _image.Width, double.IsNaN(_image.Height) ? 120 * Scale : _image.Height) : new Size(Width, _paper.Height);
 
     /// <summary>Sets the paper area in DIPs. A note keeps its font and shows more or less text; a screenshot scales without being decoded again.</summary>
     public void SetPaperSize(Size dip)
@@ -277,8 +277,15 @@ internal static class NoteColors
         Color.FromRgb(0xCF, 0xE5, 0xF5), // sky
         Color.FromRgb(0xD6, 0xEC, 0xCC), // sage
         Color.FromRgb(0xF3, 0xEE, 0xE4), // paper
+        Color.FromRgb(0xFB, 0xDC, 0xBE), // peach
+        Color.FromRgb(0xE4, 0xD6, 0xF2), // lilac
+        Color.FromRgb(0xC6, 0xEC, 0xE0), // mint
+        Color.FromRgb(0xF6, 0xC3, 0xB5), // coral
+        Color.FromRgb(0xD3, 0xD8, 0xF6), // lavender
+        Color.FromRgb(0xE6, 0xD9, 0xBD), // sand
+        Color.FromRgb(0xD9, 0xDE, 0xE3), // cloud
     };
-    public static readonly string[] Keys = { "color.yellow", "color.pink", "color.blue", "color.green", "color.paper" };
+    public static readonly string[] Keys = { "color.yellow", "color.pink", "color.blue", "color.green", "color.paper", "color.peach", "color.lilac", "color.mint", "color.coral", "color.lavender", "color.sand", "color.grey" };
     public static int Count => Papers.Length;
     public static Color Paper(int i) => Papers[Math.Clamp(i, 0, Papers.Length - 1)];
 }

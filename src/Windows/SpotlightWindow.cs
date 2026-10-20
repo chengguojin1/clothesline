@@ -32,7 +32,7 @@ internal sealed class SpotlightWindow : Window
     private TextBox? _box;
     private TextBlock? _placeholder, _count;
     private Border? _paper;
-    private StackPanel? _swatches;
+    private WrapPanel? _swatches;
     private Border? _flash;
     private FrameworkElement? _card;
 
@@ -104,13 +104,13 @@ internal sealed class SpotlightWindow : Window
         actions.Children.Add(PaperButton("", L.T("action.discard"), () => Dismiss(() => _app.Discard(_item))));
         DockPanel.SetDock(actions, Dock.Right);
         footer.Children.Add(actions);
-        _swatches = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+        _swatches = new WrapPanel { Width = 6 * 23, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
         for (int i = 0; i < NoteColors.Count; i++)
         {
             int idx = i;
             var sw = new Border
             {
-                Width = 16, Height = 16, CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 0, 7, 0), Cursor = Cursors.Hand, BorderThickness = new Thickness(1.5),
+                Width = 16, Height = 16, CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 3, 7, 3), Cursor = Cursors.Hand, BorderThickness = new Thickness(1.5),
                 Background = new SolidColorBrush(NoteColors.Paper(i)), ToolTip = L.T(NoteColors.Keys[i]),
             };
             Ui.AutomationName(sw, L.T(NoteColors.Keys[i]));

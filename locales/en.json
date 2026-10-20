@@ -50,6 +50,13 @@
   "color.blue": "Sky",
   "color.green": "Sage",
   "color.paper": "Paper",
+  "color.peach": "Peach",
+  "color.lilac": "Lilac",
+  "color.mint": "Mint",
+  "color.coral": "Coral",
+  "color.lavender": "Lavender",
+  "color.sand": "Sand",
+  "color.grey": "Cloud",
 
   "spotlight.noteHint": "Esc or click outside to hang it back",
   "spotlight.imageHint": "Esc to close  ·  Ctrl+C copy  ·  Del discard",
