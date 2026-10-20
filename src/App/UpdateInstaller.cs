@@ -14,6 +14,9 @@ internal enum UpdateState { Idle, Downloading, Ready, Failed }
 
 internal enum UpdateOutcome { None, Done, Failed }
 
+/// <summary>Why a download did not produce a usable file. Only a broken release (<see cref="Mismatch"/>) is worth giving up on.</summary>
+internal enum DownloadResult { Ok, Failed, Mismatch }
+
 /// <summary>What the installer needs from the running app. Tests leave it out: nothing is ever applied then.</summary>
 /// <param name="Allowed">Whether this version may install itself (auto update on, not a version that failed before).</param>
 /// <param name="Busy">A capture, spotlight, mark-up, menu or prompt is open.</param>
@@ -59,6 +62,8 @@ internal sealed class UpdateInstaller : IDisposable
 
     public UpdateState State { get; private set; }
     public string? ReadyVersion => State == UpdateState.Ready ? _manifest?.Version : null;
+    public UpdateManifest? ReadyManifest => State == UpdateState.Ready ? _manifest : null;
+    public string? DownloadingVersion => State == UpdateState.Downloading ? _manifest?.Version : null;
     public event Action? Changed;
 
     /// <summary>True when this EXE runs from the folder the installer recorded, compared as full paths, ignoring case.</summary>
@@ -119,27 +124,25 @@ internal sealed class UpdateInstaller : IDisposable
             return Fail(m, skip: false);
         }
         StopTimer();
-        _manifest = m;
-        _file = null;
-        _path = null;
-        SetState(UpdateState.Downloading);
+        SetState(UpdateState.Downloading, () => { _manifest = m; _file = null; _path = null; });
         var target = Path.Combine(_folder, file.Name);
-        bool ok;
-        try { ok = await Task.Run(() => DownloadAsync(file, target, ct)); }
-        catch (Exception ex) { Log.Warn($"Downloading Jemur {m.Version} failed", ex); ok = false; }
-        if (!ok)
+        var result = DownloadResult.Failed;
+        try { result = await Task.Run(() => DownloadAsync(file, target, ct)); }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { return false; } // quitting: the app is going away
+        catch (Exception ex) { Log.Warn($"Downloading Jemur {m.Version} failed", ex); }
+        if (_life.IsCancellationRequested) return false;
+        if (result != DownloadResult.Ok)
         {
             CleanUp(keepStaged: false);
-            return Fail(m, skip: false);
+            return Fail(m, skip: result == DownloadResult.Mismatch); // network and disk errors retry; a broken release does not
         }
-        _file = file;
-        _path = target;
         Log.Info($"Jemur {m.Version} is downloaded and verified");
-        SetState(UpdateState.Ready);
+        // One state change sets all three, so ApplyNow never pairs a manifest with another download's file.
+        SetState(UpdateState.Ready, () => { _manifest = m; _file = file; _path = target; });
         return true;
     }
 
-    private async Task<bool> DownloadAsync(UpdateFile f, string target, CancellationToken ct)
+    private async Task<DownloadResult> DownloadAsync(UpdateFile f, string target, CancellationToken ct)
     {
         Directory.CreateDirectory(_folder);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct, _life.Token);
@@ -147,14 +150,14 @@ internal sealed class UpdateInstaller : IDisposable
         if (File.Exists(target) && await UpdatePackage.VerifyAsync(target, f.Size, f.Sha256, timeout.Token))
         {
             foreach (var other in Directory.EnumerateFiles(_folder)) if (!other.Equals(target, StringComparison.OrdinalIgnoreCase)) TryDelete(other);
-            return true; // staged before a restart, and still intact
+            return DownloadResult.Ok; // staged before a restart, and still intact
         }
         CleanUp(keepStaged: false); // at most one staged update
         var partial = target + ".partial";
         using (var response = await _http.GetAsync(f.Url, HttpCompletionOption.ResponseHeadersRead, timeout.Token))
         {
-            if (!response.IsSuccessStatusCode) { Log.Warn($"Update download: HTTP {(int)response.StatusCode}"); return false; }
-            if (response.Content.Headers.ContentLength is long length && length != f.Size) { Log.Warn("Update download has the wrong length"); return false; }
+            if (!response.IsSuccessStatusCode) { Log.Warn($"Update download: HTTP {(int)response.StatusCode}"); return DownloadResult.Failed; }
+            if (response.Content.Headers.ContentLength is long length && length != f.Size) { Log.Warn("Update download has the wrong length"); return DownloadResult.Mismatch; }
             await using var source = await response.Content.ReadAsStreamAsync(timeout.Token);
             await using var sink = new FileStream(partial, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
             var buffer = new byte[81920];
@@ -163,13 +166,13 @@ internal sealed class UpdateInstaller : IDisposable
             while ((read = await source.ReadAsync(buffer, timeout.Token)) > 0)
             {
                 total += read;
-                if (total > f.Size) { Log.Warn("Update download is longer than the manifest says"); return false; }
+                if (total > f.Size) { Log.Warn("Update download is longer than the manifest says"); return DownloadResult.Mismatch; }
                 await sink.WriteAsync(buffer.AsMemory(0, read), timeout.Token);
             }
         }
-        if (!await UpdatePackage.VerifyAsync(partial, f.Size, f.Sha256, timeout.Token)) { Log.Warn("Update download does not match its SHA-256"); return false; }
+        if (!await UpdatePackage.VerifyAsync(partial, f.Size, f.Sha256, timeout.Token)) { Log.Warn("Update download does not match its SHA-256"); return DownloadResult.Mismatch; }
         File.Move(partial, target, true);
-        return true;
+        return DownloadResult.Ok;
     }
 
     /// <summary>
@@ -238,16 +241,15 @@ internal sealed class UpdateInstaller : IDisposable
 
     private bool Fail(UpdateManifest m, bool skip)
     {
-        _file = null;
-        _path = null;
-        SetState(UpdateState.Failed);
+        SetState(UpdateState.Failed, () => { _file = null; _path = null; });
         _host?.Fallback(m, skip);
         return false;
     }
 
-    private void SetState(UpdateState state)
+    private void SetState(UpdateState state, Action? assign = null)
     {
-        if (_host != null && !_host.Dispatcher.CheckAccess()) { _host.Dispatcher.Invoke(() => SetState(state)); return; }
+        if (_host != null && !_host.Dispatcher.CheckAccess()) { _host.Dispatcher.Invoke(() => SetState(state, assign)); return; }
+        assign?.Invoke();
         State = state;
         Refresh();
         Changed?.Invoke();
@@ -267,7 +269,8 @@ internal sealed class UpdateInstaller : IDisposable
 
     private static void Start(string file, params string[] args)
     {
-        var psi = new ProcessStartInfo(file) { UseShellExecute = false, CreateNoWindow = true };
+        // System folder as the working directory: no process we start may hold the install folder open.
+        var psi = new ProcessStartInfo(file) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Environment.SystemDirectory };
         foreach (var a in args) psi.ArgumentList.Add(a);
         using var p = Process.Start(psi) ?? throw new InvalidOperationException(file + " did not start");
     }

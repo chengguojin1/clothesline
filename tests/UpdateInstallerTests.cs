@@ -2,6 +2,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
+using System.Windows.Threading;
 using Jemur.App;
 using Jemur.Core;
 using Xunit;
@@ -83,6 +84,39 @@ public sealed class UpdateInstallerTests : IDisposable
         Assert.False(installer.ApplyNow());
     }
 
+    [Fact]
+    public async Task StageAsync_BadHash_SkipsThatVersion()
+    {
+        var skipped = new List<bool>();
+        using var installer = Hosted(new FakeHandler(_payload), skipped);
+
+        Assert.False(await installer.StageAsync(Manifest(new string('0', 64)), CancellationToken.None));
+        Assert.Equal(new[] { true }, skipped); // a broken release is not downloaded again every day
+    }
+
+    [Fact]
+    public async Task StageAsync_NetworkError_StaysRetryable()
+    {
+        var skipped = new List<bool>();
+        using var installer = Hosted(new ThrowingHandler(), skipped);
+
+        Assert.False(await installer.StageAsync(Manifest(Convert.ToHexString(SHA256.HashData(_payload))), CancellationToken.None));
+        Assert.Equal(new[] { false }, skipped);
+    }
+
+    private UpdateInstaller Hosted(HttpMessageHandler handler, List<bool> skipped)
+    {
+        // A pumping dispatcher on its own thread, as in the app: state changes are marshalled onto it.
+        Dispatcher? dispatcher = null;
+        using var ready = new ManualResetEventSlim();
+        var thread = new Thread(() => { dispatcher = Dispatcher.CurrentDispatcher; ready.Set(); Dispatcher.Run(); }) { IsBackground = true };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        ready.Wait();
+        var host = new UpdateHost(dispatcher!, _ => false, () => false, () => true, () => { }, (_, skip) => skipped.Add(skip));
+        return new UpdateInstaller(new HttpClient(handler), _folder, ManifestUri, installed: false, host);
+    }
+
     private UpdateInstaller New(byte[] body) => new(new HttpClient(new FakeHandler(body)), _folder, ManifestUri, installed: false, host: null);
 
     private UpdateManifest Manifest(string sha256, string name = "Jemur.exe")
@@ -91,6 +125,12 @@ public sealed class UpdateInstallerTests : IDisposable
             .Select(a => new UpdateFile(name, "portable", a, _payload.Length, sha256, new Uri("https://downloads.example.test/" + a + "/Jemur.exe")))
             .ToList();
         return new UpdateManifest("0.4.0", new string('a', 40), new Uri("https://github.com/revanapriyandi/jemur/releases/tag/v0.4.0"), files);
+    }
+
+    private sealed class ThrowingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new HttpRequestException("offline");
     }
 
     private sealed class FakeHandler(byte[] body) : HttpMessageHandler
