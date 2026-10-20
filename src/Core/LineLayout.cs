@@ -5,7 +5,7 @@ namespace Jemur.Core;
 /// <summary>Pure geometry for card groups and desktop pins, kept free of windows so it can be tested.</summary>
 internal static class LineLayout
 {
-    public const double GroupGap = 10, FirstPinDrop = 200, StackStep = 4, StackTilt = 3;
+    public const double GroupGap = 10, StackStep = 4, StackTilt = 3;
 
     /// <summary>Centre x of each card when laid out left to right from <paramref name="startX"/>.</summary>
     public static double[] GroupSlots(double startX, IReadOnlyList<double> widths, double gap)
@@ -74,8 +74,9 @@ internal static class LineLayout
     /// Where a new desktop card goes: cascade from the top-left, row by row, to the first spot that no occupied rectangle
     /// covers by more than half. When every spot is taken, restart offset by <see cref="SpotWrapOffset"/> until one is free.
     /// </summary>
-    public static Point FreeDesktopSpot(Rect workArea, Size card, IReadOnlyList<Rect> occupied)
+    public static Point FreeDesktopSpot(Rect workArea, Size card, IReadOnlyList<Rect> occupied, double scale = 1)
     {
+        double margin = SpotMargin * scale, gap = SpotGap * scale, wrap = SpotWrapOffset * scale; // the area and card are in pixels, the constants in DIPs
         double half = card.Width * card.Height / 2;
         // ponytail: once the plain grid is full, a cascade step only avoids landing exactly on another card (overlap is the point).
         bool Free(Rect r, bool stacked) => !occupied.Any(o =>
@@ -86,22 +87,23 @@ internal static class LineLayout
         });
 
         Point? first = null;
-        for (double off = 0; off == 0 || off < Math.Min(card.Width, card.Height); off += SpotWrapOffset)
-            for (double y = workArea.Top + SpotMargin + off; y + card.Height <= workArea.Bottom - SpotMargin; y += card.Height + SpotGap)
-                for (double x = workArea.Left + SpotMargin + off; x + card.Width <= workArea.Right - SpotMargin; x += card.Width + SpotGap)
+        for (double off = 0; off == 0 || off < Math.Min(card.Width, card.Height); off += wrap)
+            for (double y = workArea.Top + margin + off; y + card.Height <= workArea.Bottom - margin; y += card.Height + gap)
+                for (double x = workArea.Left + margin + off; x + card.Width <= workArea.Right - margin; x += card.Width + gap)
                 {
                     first ??= new Point(x, y);
                     if (Free(new Rect(x, y, card.Width, card.Height), off > 0)) return new Point(x, y);
                 }
-        return first ?? new Point(workArea.Left + SpotMargin, workArea.Top + SpotMargin);
+        return first ?? new Point(workArea.Left + margin, workArea.Top + margin);
     }
 
-    /// <summary>A desktop card's size within its limits: notes 120..640 x 100..640; images 120..960 wide at the given aspect (width / height).</summary>
+    /// <summary>A desktop card's size within its limits: notes 120..640 x 100..640; images 120..960 wide at the given aspect (width / height).
+    /// Images are also at most 960 tall, which wins over the 120 minimum width for extremely tall ones (aspect under 0.125).</summary>
     public static Size ClampCardSize(bool image, Size wanted, double aspect)
     {
         if (!image) return new Size(Math.Clamp(wanted.Width, 120, 640), Math.Clamp(wanted.Height, 100, 640));
         if (!(aspect > 0)) aspect = 16 / 9.0; // unknown or broken image size
-        var w = Math.Clamp(wanted.Width, 120, 960);
+        var w = Math.Min(Math.Clamp(wanted.Width, 120, 960), 960 * aspect); // a portrait image stops growing when it is 960 tall
         return new Size(w, w / aspect);
     }
 
@@ -124,13 +126,6 @@ internal static class LineLayout
         return new Point(Math.Max(near.Left, Math.Min(pin.X, near.Right - pin.Width)),
                          Math.Max(near.Top, Math.Min(pin.Y, near.Bottom - pin.Height)));
     }
-
-    /// <summary>
-    /// Where a card first lands when pinned: <see cref="FirstPinDrop"/> DIP below its spot on the line, in physical pixels.
-    /// The line sits at the origin of the primary screen, so its DIPs scale straight to pixels.
-    /// </summary>
-    public static Point FirstPinSpot(Point cardOnLineDip, double lineScale) =>
-        new(cardOnLineDip.X * lineScale, (cardOnLineDip.Y + FirstPinDrop) * lineScale);
 
     /// <summary>A window's top-left in physical pixels, for a card held <paramref name="padDip"/> inside it.</summary>
     public static Point WindowForCard(Point cardPx, Vector padDip, double scale) =>

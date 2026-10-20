@@ -307,6 +307,8 @@ internal sealed class PinWindow : Window
         Native.GetCursorPos(out var p);
         double s = Scale;
         var wanted = new Size(_resizeFrom.Width + (p.X - _resizeCursor.X) / s, _resizeFrom.Height + (p.Y - _resizeCursor.Y) / s);
+        // an image keeps its aspect, so the grip follows whichever of the cursor's two movements asks for more
+        if (Item.Kind == ItemKind.Image && Card.Aspect > 0) wanted.Width = Math.Max(wanted.Width, wanted.Height * Card.Aspect);
         _resizeStored = LineLayout.ClampCardSize(Item.Kind == ItemKind.Image, LineLayout.StoredSize(wanted, CardView.Scale), Card.Aspect);
         Card.SetPaperSize(LineLayout.ShownSize(_resizeStored, CardView.Scale));
         _resized = true;

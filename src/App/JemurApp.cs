@@ -193,6 +193,9 @@ internal sealed class JemurApp
     /// <summary><see cref="Settings.LineMode"/> (every card on the rope) or <see cref="Settings.DesktopMode"/> (every card free on the desktop).</summary>
     public string Mode => Settings.Mode;
 
+    /// <summary>The mode changed, or a request to change it was ignored, so a control showing it should redraw.</summary>
+    public event Action? ModeChanged;
+
     public bool InDesktopMode => Settings.Mode == Settings.DesktopMode;
 
     public void ToggleMode() => SetMode(InDesktopMode ? Settings.LineMode : Settings.DesktopMode);
@@ -203,7 +206,7 @@ internal sealed class JemurApp
     /// </summary>
     public void SetMode(string mode)
     {
-        if (mode is not (Settings.LineMode or Settings.DesktopMode) || mode == Settings.Mode || _capturing || _markup != null) return;
+        if (mode is not (Settings.LineMode or Settings.DesktopMode) || mode == Settings.Mode || _capturing || _markup != null) { ModeChanged?.Invoke(); return; }
         if (_spotlight != null) { _spotlight.Dismiss(() => SetMode(mode)); return; } // its card must be back before the cards fly
         var midAir = _flights.ToDictionary(f => f.Key, f => f.Value.CardPx);
         foreach (var g in _flights.Values.ToList()) g.Finish(land: false);
@@ -218,6 +221,7 @@ internal sealed class JemurApp
         }
         SettingsStore.Save(Settings);
         _tray?.SetTip(TrayTip());
+        ModeChanged?.Invoke();
         bool play = Motion.Enabled;
 
         if (InDesktopMode)

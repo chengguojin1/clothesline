@@ -52,12 +52,14 @@ internal sealed class ControlPanel : Window
 
         _app.Library.Changed += OnLibraryChanged;
         _app.RopeSwitched += OnLibraryChanged;
+        _app.ModeChanged += OnModeChanged;
         L.Changed += OnLanguageChanged;
         Closed += (_, _) =>
         {
             _updateRequest?.Cancel();
             _app.Library.Changed -= OnLibraryChanged;
             _app.RopeSwitched -= OnLibraryChanged;
+            _app.ModeChanged -= OnModeChanged;
             L.Changed -= OnLanguageChanged;
             Memory.TrimSoon();
         };
@@ -93,6 +95,9 @@ internal sealed class ControlPanel : Window
         _refresh.Stop();
         _refresh.Start();
     }
+
+    /// <summary>Redraws the Settings page so its mode dropdown shows the real mode (later, so a dropdown's own pick has finished).</summary>
+    private void OnModeChanged() => Dispatcher.BeginInvoke(() => { if (_page == Page.Settings && IsVisible) Navigate(_page, animate: false); });
 
     private void OnLanguageChanged()
     {

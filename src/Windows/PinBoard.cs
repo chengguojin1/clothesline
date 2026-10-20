@@ -59,7 +59,8 @@ internal sealed class PinBoard
             var r = Native.MonitorAt(cursor, workArea: true);
             var area = new Rect(r.Left, r.Top, r.Width, r.Height);
             var taken = _windows.Select(o => new Rect(o.CardPx, o.CardSizePx(o.Scale))).ToList();
-            var free = LineLayout.FreeDesktopSpot(area, w.CardSizePx(Native.ScaleAt(area.TopLeft)), taken);
+            var scale = Native.ScaleAt(area.TopLeft);
+            var free = LineLayout.FreeDesktopSpot(area, w.CardSizePx(scale), taken, scale);
             _app.Library.Place(item, free.X, free.Y);
         }
         var spot = new Point(item.PinLeft, item.PinTop);
@@ -71,7 +72,7 @@ internal sealed class PinBoard
     /// <summary>Makes the windows of the active rope; with <paramref name="hold"/> they wait unseen for <see cref="Land"/>.</summary>
     private void AddAll(bool animate, bool hold = false)
     {
-        foreach (var item in _app.Library.Items.Where(Belongs).ToList())
+        foreach (var item in _app.Library.Items.Where(Belongs).OrderBy(i => !i.Pinned).ToList()) // placed cards first, so new ones go around them
         {
             var w = Add(item);
             if (!_lifted && !hold) w.DropIn(animate);

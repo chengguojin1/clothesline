@@ -71,10 +71,6 @@ public sealed class LineLayoutTests
     public void Clamp_KeepsMostlyVisiblePin() =>
         Assert.Equal(new Point(1850, 100), LineLayout.ClampPin(new Rect(1850, 100, 160, 140), Screens));
 
-    [Fact]
-    public void FirstPinSpot_Is200DipBelowTheLineInPixels() =>
-        Assert.Equal(new Point(150, 405), LineLayout.FirstPinSpot(new Point(100, 70), 1.5));
-
     [Theory]
     [InlineData(1.0)]
     [InlineData(1.25)]
@@ -139,6 +135,29 @@ public sealed class LineLayoutTests
     {
         Assert.Equal(new Size(960, 480), LineLayout.ClampCardSize(true, new Size(2000, 5), 2));
         Assert.Equal(new Size(120, 60), LineLayout.ClampCardSize(true, new Size(10, 5), 2));
+    }
+
+    [Fact]
+    public void ClampCardSize_PortraitImageIsCappedAt960Tall()
+    {
+        var s = LineLayout.ClampCardSize(true, new Size(2000, 5), 9 / 19.0);
+        Assert.True(s.Height <= 960 + 1e-9);
+        Assert.Equal(960, s.Height, 6);
+        Assert.Equal(960 * 9 / 19.0, s.Width, 6);
+        Assert.Equal(new Size(600, 960), LineLayout.ClampCardSize(true, new Size(600, 5), 0.625)); // exactly at the cap
+    }
+
+    [Fact]
+    public void ClampCardSize_VeryTallImageKeepsHeightCapOverMinWidth() =>
+        Assert.Equal(960, LineLayout.ClampCardSize(true, new Size(120, 5), 0.1).Height, 6);
+
+    [Fact]
+    public void FreeDesktopSpot_ScalesMarginAndGapsToPixels()
+    {
+        var area = new Rect(0, 0, 2880, 1560); // 150%
+        var card = new Size(240, 210);
+        Assert.Equal(new Point(48, 48), LineLayout.FreeDesktopSpot(area, card, Array.Empty<Rect>(), 1.5));
+        Assert.Equal(new Point(48 + 240 + 24, 48), LineLayout.FreeDesktopSpot(area, card, new[] { new Rect(48, 48, 240, 210) }, 1.5));
     }
 
     [Fact]
