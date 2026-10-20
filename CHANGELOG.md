@@ -12,9 +12,6 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ### Changed
 - Spotlight colour swatches wrap into two rows of six.
 
-### Fixed
-- Resizing a screenshot whose file could not be read no longer starts from an invalid size.
-
 ### Upgrading
 - Per-card pins and the 3-pin limit are replaced by desktop mode. Cards you had pinned keep their spot for desktop mode.
 
