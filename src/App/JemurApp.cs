@@ -520,6 +520,17 @@ internal sealed class JemurApp
         Pins.Rebuild();
     }
 
+    internal UpdateInstaller? Installer => _installer;
+
+    public void SetAutoUpdate(bool on)
+    {
+        Settings.AutoUpdate = on;
+        SettingsStore.Save(Settings);
+        _installer?.Refresh(); // off stops the quiet-moment timer (the staged file stays); on restarts it
+        // Switched off with an update waiting: say so the 0.3.0 way, or nothing would ever tell the user.
+        if (!on && _installer?.ReadyManifest is { } waiting) _updates?.NotifyAvailable(waiting);
+    }
+
     public void SetAutoHide(bool on) { Settings.AutoHide = on; Line.AutoHide = on; SettingsStore.Save(Settings); }
 
     public void SetKeepDays(int days) { Settings.KeepDiscardedDays = days; SettingsStore.Save(Settings); Library.PurgeDiscarded(days); Library.ScheduleSave(); }

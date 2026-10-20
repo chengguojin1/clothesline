@@ -53,6 +53,7 @@ internal sealed class ControlPanel : Window
         _app.Library.Changed += OnLibraryChanged;
         _app.RopeSwitched += OnLibraryChanged;
         _app.ModeChanged += OnModeChanged;
+        if (_app.Installer is { } installer) installer.Changed += OnUpdateStateChanged;
         L.Changed += OnLanguageChanged;
         Closed += (_, _) =>
         {
@@ -60,6 +61,7 @@ internal sealed class ControlPanel : Window
             _app.Library.Changed -= OnLibraryChanged;
             _app.RopeSwitched -= OnLibraryChanged;
             _app.ModeChanged -= OnModeChanged;
+            if (_app.Installer is { } installer) installer.Changed -= OnUpdateStateChanged;
             L.Changed -= OnLanguageChanged;
             Memory.TrimSoon();
         };
@@ -98,6 +100,8 @@ internal sealed class ControlPanel : Window
 
     /// <summary>Redraws the Settings page so its mode dropdown shows the real mode (later, so a dropdown's own pick has finished).</summary>
     private void OnModeChanged() => Dispatcher.BeginInvoke(() => { if (_page == Page.Settings && IsVisible) Navigate(_page, animate: false); });
+
+    private void OnUpdateStateChanged() => Dispatcher.BeginInvoke(() => { if (_page == Page.About && IsVisible) Navigate(_page, animate: false); });
 
     private void OnLanguageChanged()
     {
@@ -556,19 +560,32 @@ internal sealed class ControlPanel : Window
         var check = Ui.Button(_updateChecking ? L.T("about.checkingUpdates") : L.T("about.checkUpdates"), () => _ = CheckForUpdates(), Ui.Kind.Subtle);
         check.IsEnabled = !_updateChecking;
         updateActions.Children.Add(check);
-        if (_updateResult?.Kind == UpdateCheckKind.UpdateAvailable && _updateResult.Manifest is { } update)
+        var installer = _app.Installer;
+        var auto = _app.Settings.AutoUpdate && installer is { State: UpdateState.Downloading or UpdateState.Ready };
+        // With auto update off (or failed), a staged or announced update is offered the 0.3.0 way.
+        var update = (_updateResult?.Kind == UpdateCheckKind.UpdateAvailable ? _updateResult.Manifest : null) ?? installer?.ReadyManifest;
+        if (auto && installer!.State == UpdateState.Ready)
+        {
+            var restart = Ui.Button(L.T("about.restartToUpdate"), () => { if (!installer.ApplyNow()) Navigate(Page.About, animate: false); }, Ui.Kind.Accent);
+            restart.Margin = new Thickness(8, 0, 0, 0);
+            updateActions.Children.Add(restart);
+        }
+        else if (!auto && update != null)
         {
             var download = Ui.Button(L.T("about.downloadInstaller"), () => Open(update.ReleaseUrl.ToString()), Ui.Kind.Accent);
             download.Margin = new Thickness(8, 0, 0, 0);
             updateActions.Children.Add(download);
         }
-        var updateStatus = _updateResult?.Kind switch
-        {
-            UpdateCheckKind.UpToDate => L.F("about.upToDate", JemurApp.Version),
-            UpdateCheckKind.UpdateAvailable when _updateResult.Manifest is { } available => L.F("about.updateAvailable", available.Version),
-            UpdateCheckKind.Failed => L.F("about.updateFailed", _updateResult.Error ?? ""),
-            _ => L.T("about.updatesDesc"),
-        };
+        var updateStatus = auto
+            ? (installer!.State == UpdateState.Ready ? L.F("about.readyToInstall", installer.ReadyVersion ?? "") : L.F("about.downloading", installer.DownloadingVersion ?? ""))
+            : _updateResult?.Kind switch
+            {
+                UpdateCheckKind.UpToDate => L.F("about.upToDate", JemurApp.Version),
+                UpdateCheckKind.UpdateAvailable when _updateResult.Manifest is { } available => L.F("about.updateAvailable", available.Version),
+                UpdateCheckKind.Failed => L.F("about.updateFailed", _updateResult.Error ?? ""),
+                _ when installer?.ReadyManifest is { } staged => L.F("about.updateAvailable", staged.Version),
+                _ => L.T("about.updatesDesc"),
+            };
         if (_lastUpdateCheck is { } checkedAt) updateStatus += " " + L.F("about.lastChecked", checkedAt.ToString("g", L.Culture));
         list.Children.Add(Ui.SettingsCard("", L.T("about.updates"), updateStatus, updateActions));
 
