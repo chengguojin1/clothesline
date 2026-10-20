@@ -203,7 +203,8 @@ internal sealed class JemurApp
     /// </summary>
     public void SetMode(string mode)
     {
-        if (mode is not (Settings.LineMode or Settings.DesktopMode) || mode == Settings.Mode || _capturing) return;
+        if (mode is not (Settings.LineMode or Settings.DesktopMode) || mode == Settings.Mode || _capturing || _markup != null) return;
+        if (_spotlight != null) { _spotlight.Dismiss(() => SetMode(mode)); return; } // its card must be back before the cards fly
         var midAir = _flights.ToDictionary(f => f.Key, f => f.Value.CardPx);
         foreach (var g in _flights.Values.ToList()) g.Finish(land: false);
         _flights.Clear();
@@ -451,10 +452,11 @@ internal sealed class JemurApp
     internal Task<UpdateCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken) =>
         _updates?.CheckNowAsync(cancellationToken) ?? UpdateChecker.CheckAsync(cancellationToken);
 
-    public void SetLanguage(string code) { Settings.Language = code; SettingsStore.Save(Settings); L.Use(code); Line.Rebuild(); Pins.Rebuild(); }
+    public void SetLanguage(string code) { LandFlights(); Settings.Language = code; SettingsStore.Save(Settings); L.Use(code); Line.Rebuild(); Pins.Rebuild(); }
 
     public void SetCardSize(int size)
     {
+        LandFlights();
         Settings.CardSize = Math.Clamp(size, 0, 2);
         CardView.Scale = CardScales[Settings.CardSize];
         SettingsStore.Save(Settings);
