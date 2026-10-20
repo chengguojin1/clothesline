@@ -173,6 +173,8 @@
   "about.downloadInstaller": "Muat turun pemasang",
   "about.updateFailed": "Tidak dapat menyemak kemas kini: {0}",
   "about.lastChecked": "Semakan terakhir {0}.",
+  "update.done": "Jemur dikemas kini ke {0}",
+  "update.failed": "Tidak dapat mengemas kini Jemur. Muat turun dari halaman keluaran.",
   "about.tagline": "Jemur menggantung tangkapan skrin dan nota pada ampaian di bahagian atas skrin. Maklumat yang diperlukan untuk beberapa minit seterusnya kekal kelihatan tanpa memenuhi desktop anda. Dalam bahasa Indonesia, \"jemur\" bermaksud menggantung sesuatu untuk dikeringkan.",
   "about.links": "Pautan",
   "about.source": "Kod sumber",

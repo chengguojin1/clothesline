@@ -32,6 +32,9 @@ internal sealed class JemurApp
     private TrayIcon _tray = null!;
     private HttpClient? _updateHttp;
     private UpdateCoordinator? _updates;
+    private HttpClient? _downloadHttp;
+    private UpdateInstaller? _installer;
+    private bool _trayMenuOpen;
     private ControlPanel? _panel;
     private SpotlightWindow? _spotlight;
     private MarkupWindow? _markup;
@@ -44,14 +47,17 @@ internal sealed class JemurApp
     public bool HasOverlay => _spotlight != null || _markup != null || _capturing;
     internal IUpdateChecker UpdateChecker { get; private set; } = null!;
 
-    public JemurApp(Application wpf, bool background, string? renderDocs = null)
+    public JemurApp(Application wpf, bool background, string? renderDocs = null, string? updated = null)
     {
         _wpf = wpf;
         _background = background;
         _renderDocs = renderDocs;
+        _updated = updated;
     }
 
     private readonly string? _renderDocs;
+    /// <summary>The version a self-update restarted us for (<c>--updated &lt;v&gt;</c>).</summary>
+    private readonly string? _updated;
 
     /// <summary>
     /// Developer tool: <c>Jemur.exe --render-docs &lt;folder&gt;</c> renders the control panel in dark and light
@@ -123,6 +129,7 @@ internal sealed class JemurApp
         _updateHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
         UpdateChecker = new UpdateChecker(_updateHttp, Version, new Uri(ManifestUrl), RepoUrl);
         _updates = new UpdateCoordinator(UpdateChecker, _tray.Notify, () => ShowPanel(), TimeProvider.System, TimeSpan.FromSeconds(30), TimeSpan.FromHours(24));
+        StartInstaller();
         _updates.Start();
         Theme.Changed += () => _tray.SetIcon(Theme.IsTaskbarLight());
         L.Changed += () => _tray.SetTip(TrayTip());
@@ -154,14 +161,59 @@ internal sealed class JemurApp
     public void Stop()
     {
         if (_renderDocs == null) Library.SaveNow();
+        _installer?.Dispose();
         _updates?.Dispose();
         _updateHttp?.Dispose();
+        _downloadHttp?.Dispose();
         _hotkeys?.Dispose();
         _tray?.Dispose();
         Log.Info("Jemur stopped");
     }
 
-    public void Quit() => _wpf.Shutdown();
+    /// <summary>Quitting with an update staged installs it on the way out.</summary>
+    public void Quit()
+    {
+        if (_installer?.ApplyNow() != true) _wpf.Shutdown();
+    }
+
+    // ───────────── self-update ─────────────
+
+    private bool AutoUpdateAllowed(string version) => Settings.AutoUpdate && version != Settings.SkipAutoUpdateVersion;
+
+    private void StartInstaller()
+    {
+        var outcome = UpdateInstaller.UpdatedOutcome(_updated, Version);
+        if (outcome == UpdateOutcome.Done) _tray.Notify("Jemur", L.F("update.done", Version));
+        else if (outcome == UpdateOutcome.Failed)
+        {
+            // The installer ran but this is still the old Jemur: never try that version again by itself.
+            Log.Warn($"Restarted for {_updated} but still running {Version}");
+            Settings.SkipAutoUpdateVersion = _updated!;
+            SettingsStore.Save(Settings);
+            _tray.Notify("Jemur", L.T("update.failed"), warning: true);
+        }
+
+        bool installed = UpdateInstaller.IsInstalled();
+        if (!installed && Environment.ProcessPath is { } exe) UpdatePackage.CleanupOld(exe);
+        _downloadHttp = new HttpClient { Timeout = Timeout.InfiniteTimeSpan }; // the installer applies its own 10-minute limit
+        var host = new UpdateHost(_wpf.Dispatcher, AutoUpdateAllowed,
+            Busy: () => HasOverlay || Line.MenuOpen || _trayMenuOpen || System.Windows.Interop.ComponentDispatcher.IsThreadModal,
+            Save: () => { var ok = Library.SaveNow(); SettingsStore.Save(Settings); return ok; },
+            Exit: _wpf.Shutdown,
+            Fallback: (m, skip) =>
+            {
+                if (skip) { Settings.SkipAutoUpdateVersion = m.Version; SettingsStore.Save(Settings); }
+                _updates?.NotifyAvailable(m);
+            });
+        _installer = new UpdateInstaller(_downloadHttp, UpdateInstaller.DefaultFolder, new Uri(ManifestUrl), installed, host);
+        _installer.CleanUp(keepStaged: outcome == UpdateOutcome.None && Settings.AutoUpdate);
+        _updates!.Stage = m =>
+        {
+            if (!AutoUpdateAllowed(m.Version)) return false;
+            _ = _installer.StageAsync(m, CancellationToken.None); // reports its own failure through Fallback
+            return true;
+        };
+    }
 
     private string TrayTip() => Settings.Lifted ? L.T("tray.lifted") : $"{RopeName(ActiveRope)} · {L.N("tray.items", Library.ItemsOn(ActiveRope).Count())}";
 
@@ -861,6 +913,8 @@ internal sealed class JemurApp
         m.Items.Add(Ui.MenuItem(L.T("nav.settings"), () => ShowPanel(settings: true), ""));
         m.Items.Add(new Separator());
         m.Items.Add(Ui.MenuItem(L.T("action.quit"), Quit, ""));
+        _trayMenuOpen = true;
+        m.Closed += (_, _) => _trayMenuOpen = false;
 
         // A tray menu only dismisses on outside clicks if our process owns the foreground.
         Native.SetForegroundWindow(_tray.Hwnd);

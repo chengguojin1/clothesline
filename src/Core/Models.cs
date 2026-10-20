@@ -80,6 +80,8 @@ public sealed class Settings
     public bool Lifted { get; set; }
     /// <summary>Download and install new versions in the background.</summary>
     public bool AutoUpdate { get; set; } = true;
+    /// <summary>A version whose automatic install already failed once; it is only offered by notification.</summary>
+    public string SkipAutoUpdateVersion { get; set; } = "";
     public const string LineMode = "line", DesktopMode = "desktop";
     /// <summary>"line" (cards hang on the rope) or "desktop" (cards float free).</summary>
     public string Mode { get; set; } = LineMode;
@@ -108,6 +110,7 @@ public sealed class Settings
             Hotkeys[k] = taken ? "" : v;
         }
         CardSize = Math.Clamp(CardSize, 0, 2);
+        SkipAutoUpdateVersion ??= "";
         if (Theme is not ("system" or "light" or "dark")) Theme = "system";
         if (KeepDiscardedDays is not (1 or 7 or 30)) KeepDiscardedDays = 7;
         if (string.IsNullOrWhiteSpace(Language)) Language = "auto";

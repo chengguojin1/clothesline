@@ -192,6 +192,8 @@
   "about.downloadInstaller": "Unduh installer",
   "about.updateFailed": "Tidak dapat memeriksa pembaruan: {0}",
   "about.lastChecked": "Terakhir diperiksa {0}.",
+  "update.done": "Jemur diperbarui ke {0}",
+  "update.failed": "Gagal memperbarui Jemur. Unduh dari halaman rilis.",
   "about.tagline": "Jemur menggantung screenshot dan catatanmu di tali jemuran di bagian atas layar, supaya hal yang kamu butuhkan beberapa menit ke depan tetap terlihat tanpa memenuhi desktop.",
   "about.links": "Tautan",
   "about.source": "Kode sumber",

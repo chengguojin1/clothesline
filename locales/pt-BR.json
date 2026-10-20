@@ -173,6 +173,8 @@
   "about.downloadInstaller": "Baixar instalador",
   "about.updateFailed": "Não foi possível verificar atualizações: {0}",
   "about.lastChecked": "Última verificação: {0}.",
+  "update.done": "Jemur atualizado para {0}",
+  "update.failed": "Não foi possível atualizar o Jemur. Baixe-o na página da versão.",
   "about.tagline": "O Jemur pendura suas capturas de tela e notas em um varal no topo da tela, mantendo à vista as referências de que você precisa por alguns minutos sem encher a área de trabalho. Em indonésio, \"jemur\" significa pendurar para secar.",
   "about.links": "Links",
   "about.source": "Código-fonte",

@@ -173,6 +173,8 @@
   "about.downloadInstaller": "Descargar instalador",
   "about.updateFailed": "No se pudieron buscar actualizaciones: {0}",
   "about.lastChecked": "Última comprobación: {0}.",
+  "update.done": "Jemur se actualizó a {0}",
+  "update.failed": "No se pudo actualizar Jemur. Descárgalo desde la página de la versión.",
   "about.tagline": "Jemur cuelga tus capturas y notas en un tendedero en la parte superior de la pantalla, para que las referencias que necesitas durante unos minutos sigan a la vista sin abarrotar el escritorio. «Jemur» significa colgar la ropa para secarla en indonesio.",
   "about.links": "Enlaces",
   "about.source": "Código fuente",

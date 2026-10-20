@@ -23,6 +23,23 @@ public sealed class UpdateCoordinatorTests
     }
 
     [Fact]
+    public async Task StagedUpdateSkipsTheNotificationUntilItFallsBack()
+    {
+        var manifest = Manifest("0.1.4");
+        var checker = new FakeChecker(UpdateCheckResult.Available(manifest));
+        var notifications = 0;
+        using var coordinator = New(checker, (_, _, _) => notifications++);
+        coordinator.Stage = _ => true;
+
+        await coordinator.CheckNowAsync(CancellationToken.None);
+        Assert.Equal(0, notifications);
+
+        coordinator.NotifyAvailable(manifest);
+        coordinator.NotifyAvailable(manifest);
+        Assert.Equal(1, notifications);
+    }
+
+    [Fact]
     public async Task BackgroundFailureDoesNotNotify()
     {
         var checker = new FakeChecker(UpdateCheckResult.Failed("offline"));

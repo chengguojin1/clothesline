@@ -124,11 +124,12 @@ internal sealed class Library
     /// <summary>Coalesces bursts of edits (typing, dragging) into one write.</summary>
     public void ScheduleSave()
     {
-        _saveTimer ??= new Timer(_ => Post(SaveNow));
+        _saveTimer ??= new Timer(_ => Post(() => SaveNow()));
         _saveTimer.Change(500, Timeout.Infinite);
     }
 
-    public void SaveNow()
+    /// <summary>Writes items.json now; false when it could not be written.</summary>
+    public bool SaveNow()
     {
         _saveTimer?.Change(Timeout.Infinite, Timeout.Infinite);
         var dir = _dataDir;
@@ -147,8 +148,9 @@ internal sealed class Library
             var tmp = file + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(shape, Json));
             File.Move(tmp, file, true);
+            return true;
         }
-        catch (Exception ex) { Log.Error("Saving items failed", ex); }
+        catch (Exception ex) { Log.Error("Saving items failed", ex); return false; }
     }
 
     private void Post(Action a)

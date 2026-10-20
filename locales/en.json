@@ -192,6 +192,8 @@
   "about.downloadInstaller": "Download installer",
   "about.updateFailed": "Couldn’t check for updates: {0}",
   "about.lastChecked": "Last checked {0}.",
+  "update.done": "Jemur updated to {0}",
+  "update.failed": "Couldn't update Jemur. Download it from the release page.",
   "about.tagline": "Jemur hangs your screenshots and notes on a clothesline across the top of the screen, so the things you need for the next few minutes stay in sight without cluttering your desktop. \"Jemur\" is Indonesian for hanging things out to dry.",
   "about.links": "Links",
   "about.source": "Source code",

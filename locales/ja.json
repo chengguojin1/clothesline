@@ -173,6 +173,8 @@
   "about.downloadInstaller": "インストーラーをダウンロード",
   "about.updateFailed": "更新を確認できませんでした：{0}",
   "about.lastChecked": "最終確認：{0}。",
+  "update.done": "Jemur を {0} に更新しました",
+  "update.failed": "Jemur を更新できませんでした。リリースページからダウンロードしてください。",
   "about.tagline": "Jemur は、画面上部の物干しロープのようなラインにスクリーンショットやメモを掛けるアプリです。少しの間だけ必要な情報を、デスクトップを散らかさず見える場所に置いておけます。「Jemur」はインドネシア語で、物を干して乾かすことを意味します。",
   "about.links": "リンク",
   "about.source": "ソースコード",
