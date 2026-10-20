@@ -128,4 +128,47 @@ public sealed class UpdatePackageTests : IDisposable
         Assert.True(new Settings().AutoUpdate);
         Assert.True(System.Text.Json.JsonSerializer.Deserialize<Settings>("{\"Theme\":\"dark\"}")!.AutoUpdate);
     }
+
+    [Fact]
+    public void HelperScript_DoublesTypographicQuotes()
+    {
+        var s = UpdatePackage.HelperScript(1, @"C:\a.exe", "C:\\Users\\O\u2019Neil\\Jemur.exe", "0.4.0");
+        Assert.Contains("'C:\\Users\\O\u2019\u2019Neil\\Jemur.exe'", s);
+    }
+
+    [Fact]
+    public void Select_RejectsUserinfoAndOtherPort()
+    {
+        Assert.Null(UpdatePackage.Select(M(F("a.exe", "portable", "x64", url: "https://jemur-downloads.example.test@evil.com/a.exe")), Manifest, "x64", false));
+        Assert.Null(UpdatePackage.Select(M(F("a.exe", "portable", "x64", url: "https://jemur-downloads.example.test:8443/a.exe")), Manifest, "x64", false));
+    }
+
+    [Theory]
+    [InlineData(1_000_000L, true)]
+    [InlineData(300_000_000L, true)]
+    [InlineData(999_999L, false)]
+    [InlineData(300_000_001L, false)]
+    public void Select_SizeBoundaries(long size, bool ok) =>
+        Assert.Equal(ok, UpdatePackage.Select(M(F("a.exe", "portable", "x64", size)), Manifest, "x64", false) != null);
+
+    [Theory]
+    [InlineData(63)]
+    [InlineData(65)]
+    public void Select_RejectsWrongHashLength(int len) =>
+        Assert.Null(UpdatePackage.Select(M(F("a.exe", "portable", "x64", sha: new string('a', len))), Manifest, "x64", false));
+
+    [Fact]
+    public void Select_RejectsNonHexAndTrailingNewlineHash()
+    {
+        Assert.Null(UpdatePackage.Select(M(F("a.exe", "portable", "x64", sha: new string('g', 64))), Manifest, "x64", false));
+        Assert.Null(UpdatePackage.Select(M(F("a.exe", "portable", "x64", sha: new string('a', 64) + "\n")), Manifest, "x64", false));
+    }
+
+    [Fact]
+    public void Select_WrongKindOrArchIsNull()
+    {
+        var m = M(F("a.exe", "portable", "x64"));
+        Assert.Null(UpdatePackage.Select(m, Manifest, "x64", true));
+        Assert.Null(UpdatePackage.Select(m, Manifest, "arm64", false));
+    }
 }

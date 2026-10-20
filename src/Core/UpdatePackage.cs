@@ -8,7 +8,7 @@ namespace Jemur.Core;
 internal static class UpdatePackage
 {
     private const long MinSize = 1_000_000, MaxSize = 300_000_000;
-    private static readonly Regex Hex64 = new("^[0-9a-fA-F]{64}$", RegexOptions.CultureInvariant);
+    private static readonly Regex Hex64 = new(@"^[0-9a-fA-F]{64}\z", RegexOptions.CultureInvariant);
 
     public static UpdateFile? Select(UpdateManifest m, Uri manifestUri, string architecture, bool installed)
     {
@@ -16,7 +16,8 @@ internal static class UpdatePackage
         foreach (var f in m.Files)
         {
             if (f.Kind != kind || f.Architecture != architecture) continue;
-            if (f.Url.Scheme != Uri.UriSchemeHttps || !f.Url.Host.Equals(manifestUri.Host, StringComparison.OrdinalIgnoreCase)) continue;
+            if (f.Url.Scheme != Uri.UriSchemeHttps || !f.Url.Host.Equals(manifestUri.Host, StringComparison.OrdinalIgnoreCase)
+                || f.Url.Port != manifestUri.Port || f.Url.UserInfo.Length > 0) continue;
             if (f.Size < MinSize || f.Size > MaxSize || !Hex64.IsMatch(f.Sha256)) continue;
             return f;
         }
@@ -46,7 +47,7 @@ internal static class UpdatePackage
         $"Start-Process -FilePath {Q(setupPath)} -ArgumentList '/S' -Wait\n" +
         $"Start-Process -FilePath {Q(exePath)} -ArgumentList '--background','--updated',{Q(version)}\n";
 
-    private static string Q(string s) => "'" + s.Replace("'", "''") + "'";
+    private static string Q(string s) => "'" + Regex.Replace(s, "['‘’‚‛]", "$0$0") + "'";
 
     public static bool PortableSwap(string exePath, string newExePath)
     {
@@ -62,7 +63,7 @@ internal static class UpdatePackage
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            if (moved) { try { File.Move(old, exePath, true); } catch { } }
+            if (moved) { try { File.Move(old, exePath, true); } catch (Exception restore) { Log.Error("Could not restore " + exePath + " after a failed update swap", restore); } }
             return false;
         }
     }
