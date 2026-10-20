@@ -7,7 +7,12 @@ namespace Jemur.Core;
 
 internal enum UpdateCheckKind { UpToDate, UpdateAvailable, Failed }
 
-internal sealed record UpdateManifest(string Version, string Commit, Uri ReleaseUrl);
+internal sealed record UpdateFile(string Name, string Kind, string Architecture, long Size, string Sha256, Uri Url);
+
+internal sealed record UpdateManifest(string Version, string Commit, Uri ReleaseUrl, IReadOnlyList<UpdateFile> Files)
+{
+    public UpdateManifest(string version, string commit, Uri releaseUrl) : this(version, commit, releaseUrl, Array.Empty<UpdateFile>()) { }
+}
 
 internal sealed record UpdateCheckResult(UpdateCheckKind Kind, UpdateManifest? Manifest, string? Error)
 {
@@ -100,7 +105,14 @@ internal sealed class UpdateChecker : IUpdateChecker
             var release = string.IsNullOrWhiteSpace(dto.ReleaseUrl) ? $"{_repositoryUrl}/releases/tag/v{dto.Version}" : dto.ReleaseUrl;
             if (!Uri.TryCreate(release, UriKind.Absolute, out var releaseUri) || releaseUri.Scheme != Uri.UriSchemeHttps || !releaseUri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
                 return UpdateCheckResult.Failed("Invalid release URL");
-            var manifest = new UpdateManifest(dto.Version, dto.Commit, releaseUri);
+            var files = new List<UpdateFile>();
+            foreach (var f in dto.Files ?? new())
+            {
+                if (f?.Name == null || f.Kind == null || f.Architecture == null || f.Sha256 == null
+                    || !Uri.TryCreate(f.Url, UriKind.Absolute, out var fileUri)) continue;
+                files.Add(new UpdateFile(f.Name, f.Kind, f.Architecture, f.Size, f.Sha256, fileUri));
+            }
+            var manifest = new UpdateManifest(dto.Version, dto.Commit, releaseUri, files);
             if (!SemanticVersion.TryParse(_localVersion, out var local)) return UpdateCheckResult.Failed("Invalid local version");
             return remote.CompareTo(local) > 0 ? UpdateCheckResult.Available(manifest) : UpdateCheckResult.UpToDate(manifest);
         }
@@ -131,5 +143,16 @@ internal sealed class UpdateChecker : IUpdateChecker
         public string? Version { get; set; }
         public string? Commit { get; set; }
         public string? ReleaseUrl { get; set; }
+        public List<FileDto?>? Files { get; set; }
+    }
+
+    private sealed class FileDto
+    {
+        public string? Name { get; set; }
+        public string? Kind { get; set; }
+        public string? Architecture { get; set; }
+        public long Size { get; set; }
+        public string? Sha256 { get; set; }
+        public string? Url { get; set; }
     }
 }

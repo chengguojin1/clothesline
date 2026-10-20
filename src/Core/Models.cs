@@ -78,6 +78,8 @@ public sealed class Settings
     public bool Welcomed { get; set; }
     public string ActiveRope { get; set; } = Rope.DefaultId;
     public bool Lifted { get; set; }
+    /// <summary>Download and install new versions in the background.</summary>
+    public bool AutoUpdate { get; set; } = true;
     public const string LineMode = "line", DesktopMode = "desktop";
     /// <summary>"line" (cards hang on the rope) or "desktop" (cards float free).</summary>
     public string Mode { get; set; } = LineMode;

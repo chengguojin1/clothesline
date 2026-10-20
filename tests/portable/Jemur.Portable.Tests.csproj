@@ -15,6 +15,8 @@
     <Compile Include="../LocalizationTests.cs" Link="LocalizationTests.cs" />
     <Compile Include="UpdateCheckerTests.cs" />
     <Compile Include="UpdateCoordinatorTests.cs" />
+    <Compile Include="UpdatePackageTests.cs" />
+    <Compile Include="../../src/Core/UpdatePackage.cs" Link="Core/UpdatePackage.cs" />
     <Compile Include="../../src/Core/AppPaths.cs" Link="Core/AppPaths.cs" />
     <Compile Include="../../src/Core/Library.cs" Link="Core/Library.cs" />
     <Compile Include="../../src/Core/Log.cs" Link="Core/Log.cs" />
