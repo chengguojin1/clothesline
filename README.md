@@ -110,15 +110,24 @@ identify its source commit and packages.
 
 ## Updates
 
-Open **About** and choose **Check for updates** to check the public release
-manifest. Jemur also performs a quiet check about 30 seconds after startup and
-at most once every 24 hours while it is running. When a newer version exists,
-Jemur shows a notification in the Windows notification area.
+Jemur updates itself. When a newer version is published, it downloads the
+package for your build in the background, checks its size and SHA-256 against the
+public manifest, and installs it when you are away (no capture, spotlight,
+mark-up, menu or prompt open, and no input for 2 minutes) or when you quit.
+Turn this off in **Settings → Update automatically**; Jemur then behaves as
+before and only tells you that a version is available.
+
+Open **About** and choose **Check for updates** to check right away. Jemur also
+checks about 30 seconds after startup and at most once every 24 hours. While an
+update is downloading or waiting, About shows its status and a **Restart to
+update** button.
 
 The checker sends no account or library data. It only reads the public
-manifest. Jemur never downloads or installs an update by itself. Choose
-**Download installer** in About to open the verified GitHub release page and
-start the installer yourself.
+manifest. Jemur never runs a file whose size and SHA-256 do not match the
+manifest, and only downloads from the Jemur download host. If an automatic
+update fails, choose **Download installer** in About to open the verified GitHub
+release page and start the installer yourself. Versions 0.3.0 and older update
+by hand once.
 
 Runs on Windows 10 (1809 or later) and Windows 11. Mica and rounded corners appear on Windows 11.
 

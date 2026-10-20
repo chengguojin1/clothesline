@@ -2,6 +2,18 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-20
+
+### Added
+- Automatic updates: Jemur downloads a new version, checks its size and SHA-256 against the release manifest, and installs it when you are away or when you quit. The installed build runs the setup; the portable build replaces its own EXE and restarts.
+- Settings → Update automatically turns this off. About shows the download and ready status and a Restart to update button.
+
+### Fixed
+- A download that fails its checks is deleted and that version is not retried by itself.
+
+### Upgrading
+- 0.3.0 and older update by hand once.
+
 ## [0.3.0] - 2026-10-20
 
 ### Added
