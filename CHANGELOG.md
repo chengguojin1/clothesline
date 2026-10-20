@@ -2,6 +2,22 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-10-20
+
+### Added
+- Desktop mode: Alt+Shift+M, the tray menu or Settings → Cards switches every card between the line and free spots on the desktop, above other apps, with no limit.
+- Resizable cards on the desktop: drag the corner grip; double-click it to reset. Notes keep their text size and screenshots keep their shape.
+- Seven more note colours (Peach, Lilac, Mint, Coral, Lavender, Sand, Cloud), twelve in all.
+
+### Changed
+- Spotlight colour swatches wrap into two rows of six.
+
+### Fixed
+- Resizing a screenshot whose file could not be read no longer starts from an invalid size.
+
+### Upgrading
+- Per-card pins and the 3-pin limit are replaced by desktop mode. Cards you had pinned keep their spot for desktop mode.
+
 ## [0.2.0] - 2026-10-19
 
 ### Added
