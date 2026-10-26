@@ -158,7 +158,7 @@ Tucked away, Jemur shows about **3 MB** in Task Manager's *Memory* column, with 
 
 ## Privacy
 
-Everything stays on your PC. Screenshots and notes live in `%APPDATA%\Jemur`. There is no network code, no telemetry and no account.
+Everything stays on your PC. Screenshots and notes live in `%APPDATA%\Jemur`. There is no telemetry and no account. Jemur only goes online to check for updates and, when a note contains a web address, to fetch that one page's title and picture for its preview.
 
 ## Languages
 

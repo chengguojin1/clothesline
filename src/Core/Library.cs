@@ -390,9 +390,16 @@ internal sealed class Library
 
     private void DeleteFile(HangItem item)
     {
-        // Only ever delete PNGs we created, and only if nothing else still points at them.
-        if (item.Kind != ItemKind.Image || !AppPaths.IsOwnedShot(item.File)) return;
-        if (_items.Concat(_discarded).Any(o => o != item && string.Equals(o.File, item.File, StringComparison.OrdinalIgnoreCase))) return;
-        try { File.Delete(item.File!); } catch (Exception ex) { Log.Warn($"Could not delete {item.File}", ex); }
+        DeleteOwned(item, item.File);
+        DeleteOwned(item, item.Link?.Image);
+    }
+
+    /// <summary>Deletes a picture Jemur made (screenshot, a note's picture, a link preview), only if no other item still points at it.</summary>
+    public void DeleteOwned(HangItem owner, string? path)
+    {
+        if (!AppPaths.IsOwnedShot(path)) return;
+        bool Same(string? p) => string.Equals(p, path, StringComparison.OrdinalIgnoreCase);
+        if (_items.Concat(_discarded).Any(o => o != owner && (Same(o.File) || Same(o.Link?.Image)))) return;
+        try { File.Delete(path!); } catch (Exception ex) { Log.Warn($"Could not delete {path}", ex); }
     }
 }

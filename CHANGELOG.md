@@ -2,6 +2,14 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Desktop piles: drop a desktop card on another to stack them neatly; dragging any card of a pile carries the whole pile.
+- Shake a desktop card while dragging it: a card in a pile shakes loose, a loose card tidies every card on that monitor into rows.
+- Screenshots take a note, written in the polaroid's bottom strip.
+- Notes take a picture (Ctrl+V, drop a file, or the picture button) and show a preview of the first web address they contain.
+
 ## [0.4.0] - 2026-10-20
 
 ### Added

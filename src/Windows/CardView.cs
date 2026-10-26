@@ -32,6 +32,9 @@ internal sealed class CardView : Grid
     private readonly Grid _paperHost;
     private readonly Image? _image;
     private readonly TextBlock? _noteText;
+    private readonly TextBlock? _caption, _linkLine;
+    private readonly Image? _thumb;
+    private string? _thumbPath;
     private readonly Border _toast;
     private readonly TextBlock _toastText;
 
@@ -67,8 +70,18 @@ internal sealed class CardView : Grid
             _paper.Height = Math.Round(100 * Scale) + 21;
             _image = new Image { Stretch = Stretch.UniformToFill };
             RenderOptions.SetBitmapScalingMode(_image, BitmapScalingMode.HighQuality);
-            _paper.Child = new Border { Child = _image, ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)) };
+            // the note written on a screenshot sits in the polaroid's bottom strip
+            _caption = new TextBlock
+            {
+                FontFamily = Theme.Hand, FontSize = 10.5, Foreground = Theme.Ink, TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(1, 0, 1, -14.5), IsHitTestVisible = false,
+            };
+            var shot = new Grid();
+            shot.Children.Add(new Border { Child = _image, ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)) });
+            shot.Children.Add(_caption);
+            _paper.Child = shot;
             if (thumbnail) ReloadImage();
+            RefreshNote();
         }
         else
         {
@@ -81,8 +94,23 @@ internal sealed class CardView : Grid
                 FontFamily = Theme.Hand, FontSize = Math.Round(12.5 * Math.Sqrt(Scale) * 2) / 2, TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Theme.Ink, LineHeight = Math.Round(18 * Math.Sqrt(Scale)),
             };
+            // a picture on the note (or the linked page's) on top, the linked page's title at the foot
+            _thumb = new Image { Stretch = Stretch.UniformToFill, Height = Math.Round(46 * Scale), Visibility = Visibility.Collapsed };
+            RenderOptions.SetBitmapScalingMode(_thumb, BitmapScalingMode.HighQuality);
+            var thumbFrame = new Border { Child = _thumb, ClipToBounds = true, CornerRadius = new CornerRadius(2), Margin = new Thickness(0, 0, 0, 6) };
+            DockPanel.SetDock(thumbFrame, Dock.Top);
+            _linkLine = new TextBlock
+            {
+                FontFamily = Theme.Font, FontSize = 10, Foreground = Theme.Ink, Opacity = 0.6, TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 4, 0, 0), Visibility = Visibility.Collapsed,
+            };
+            DockPanel.SetDock(_linkLine, Dock.Bottom);
+            var body = new DockPanel();
+            body.Children.Add(thumbFrame);
+            body.Children.Add(_linkLine);
+            body.Children.Add(_noteText);
             var g = new Grid();
-            g.Children.Add(_noteText);
+            g.Children.Add(body);
             g.Children.Add(new Path
             {
                 Data = Geometry.Parse("M 12,0 L 12,12 L 0,12 Z"), Fill = new SolidColorBrush(Color.FromArgb(0x1E, 0, 0, 0)),
@@ -203,7 +231,22 @@ internal sealed class CardView : Grid
 
     public void RefreshNote()
     {
+        if (_caption != null)
+        {
+            _caption.Text = Item.Text.ReplaceLineEndings(" ");
+            return;
+        }
         if (_noteText == null) return;
+        var pic = Item.File ?? Item.Link?.Image;
+        if (pic != _thumbPath)
+        {
+            _thumbPath = pic;
+            try { _thumb!.Source = pic != null && System.IO.File.Exists(pic) ? Images.Thumbnail(pic, (int)(Width * 2)) : null; }
+            catch (Exception ex) { Log.Warn($"Thumbnail failed for {pic}", ex); _thumb!.Source = null; }
+            _thumb.Visibility = _thumb.Source != null ? Visibility.Visible : Visibility.Collapsed;
+        }
+        _linkLine!.Text = Item.Link is { } link ? "↗ " + link.Title : "";
+        _linkLine.Visibility = Item.Link != null ? Visibility.Visible : Visibility.Collapsed;
         _paper.Background = new SolidColorBrush(NoteColors.Paper(Item.Color));
         bool empty = string.IsNullOrWhiteSpace(Item.Text);
         _noteText.Text = empty ? L.T("note.empty") : Item.Text;
@@ -225,6 +268,16 @@ internal sealed class CardView : Grid
         var st = new ScaleTransform(1, 1, Width / 2, 0);
         _paperHost.RenderTransform = st;
         var a = new DoubleAnimation(1, 1.05, TimeSpan.FromMilliseconds(100)) { AutoReverse = true };
+        st.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+        st.BeginAnimation(ScaleTransform.ScaleYProperty, a);
+    }
+
+    /// <summary>Grows a little while a dragged card hovers over it (letting go there groups them), and settles back after.</summary>
+    public void Beckon(bool on)
+    {
+        if (_paperHost.RenderTransform is not ScaleTransform { IsFrozen: false } st)
+            _paperHost.RenderTransform = st = new ScaleTransform(1, 1, Width / 2, 0);
+        var a = new DoubleAnimation(on ? 1.08 : 1, TimeSpan.FromMilliseconds(Motion.Enabled ? 180 : 0)) { EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut } };
         st.BeginAnimation(ScaleTransform.ScaleXProperty, a);
         st.BeginAnimation(ScaleTransform.ScaleYProperty, a);
     }

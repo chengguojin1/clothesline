@@ -21,7 +21,7 @@ namespace Jemur.Windows;
 internal sealed class PinWindow : Window
 {
     private const double PadTop = 28, PadBottom = 14, DragThreshold = 5, LiftBy = 24, MaxSwing = 38;
-    private const int HoldMs = 500, LiftMs = 220;
+    private const int HoldMs = 500, LiftMs = 220, GlideMs = 340;
 
     private readonly JemurApp _app;
     private readonly Grid _root = new();
@@ -38,6 +38,17 @@ internal sealed class PinWindow : Window
 
     // physics
     private bool _animating;
+
+    // a glide to another spot (physical pixels), eased with a little overshoot
+    private Point _glideFrom, _glideTo;
+    private TimeSpan _glideStart;
+    private int _glideDelay;
+    private bool _gliding;
+
+    private readonly Shake _shake = new();
+
+    /// <summary>A drag starts, moves, ends (saved by then), or the card is shaken while dragged.</summary>
+    public event Action<PinWindow>? DragBegan, Dragged, Dropped, Shaken;
 
     // resize (physical pixels for the cursor, DIPs for sizes)
     private bool _resizing, _resized;
@@ -138,6 +149,11 @@ internal sealed class PinWindow : Window
     public void Kick(double v)
     {
         Card.Impulse(v);
+        StartFrames();
+    }
+
+    private void StartFrames()
+    {
         if (_animating) return;
         _animating = true;
         _lastFrame = TimeSpan.Zero;
@@ -149,9 +165,46 @@ internal sealed class PinWindow : Window
         var t = ((RenderingEventArgs)e).RenderingTime;
         double dt = _lastFrame == TimeSpan.Zero ? 1 / 60.0 : Math.Min(0.05, (t - _lastFrame).TotalSeconds);
         _lastFrame = t;
-        if (dt <= 0 || Card.Step(dt)) return;
+        bool gliding = _gliding && GlideStep(t);
+        if (dt <= 0 || Card.Step(dt) || gliding) return;
         StopPhysics();
     }
+
+    /// <summary>Slides the card to a spot (physical pixels) after <paramref name="delayMs"/>, swinging as it goes, and saves it there.</summary>
+    public void GlideTo(Point to, int delayMs = 0)
+    {
+        if (!Motion.Enabled || !IsVisible) { _gliding = false; PlaceAt(to); SaveSpot(); return; }
+        _glideFrom = CardPx;
+        _glideTo = to;
+        _glideStart = TimeSpan.Zero;
+        _glideDelay = delayMs;
+        _gliding = true;
+        StartFrames();
+    }
+
+    private bool GlideStep(TimeSpan t)
+    {
+        if (_glideStart == TimeSpan.Zero) _glideStart = t;
+        double ms = (t - _glideStart).TotalMilliseconds - _glideDelay;
+        if (ms < 0) return true;
+        double k = Math.Min(1, ms / GlideMs), u = k - 1;
+        double eased = 1 + 2.2 * u * u * u + 1.2 * u * u; // back ease out: a soft overshoot, then it settles
+        var at = _glideFrom + (_glideTo - _glideFrom) * eased;
+        double was = _spot.X;
+        PlaceAt(at);
+        Card.Impulse(-(at.X - was) / Scale * 5);
+        if (k < 1) return true;
+        _gliding = false;
+        SaveSpot();
+        Kick((_glideTo.X >= _glideFrom.X ? -1 : 1) * 40);
+        return false;
+    }
+
+    /// <summary>Remembers where the card is now (after it moved with its pile).</summary>
+    public void SaveSpot() => _app.Library.MovePin(Item, _spot.X, _spot.Y, Item.PinWidth, Item.PinHeight);
+
+    /// <summary>On top of the other cards (piles stack in order).</summary>
+    public void Front() => Native.SetWindowPos(Hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // HWND_TOPMOST; NOSIZE | NOMOVE | NOACTIVATE
 
     private void StopPhysics()
     {
@@ -218,8 +271,10 @@ internal sealed class PinWindow : Window
         if (ReferenceEquals(e.OriginalSource, _grip)) return; // the grip resizes; it must not drag, hold or click the card
         Native.GetCursorPos(out _pressCursor);
         _lastCursor = _pressCursor;
+        if (_gliding) { _gliding = false; SaveSpot(); } // caught mid-glide: it stays under the cursor
         _pressCard = CardPx;
         _pressed = true;
+        _shake.Reset();
         _dragging = _holdFired = false;
         Card.CaptureMouse();
         _hold.Stop();
@@ -233,7 +288,7 @@ internal sealed class PinWindow : Window
         Native.GetCursorPos(out var p);
         double s = Scale;
         int dx = p.X - _pressCursor.X, dy = p.Y - _pressCursor.Y;
-        if (!_dragging && (Math.Abs(dx) > DragThreshold * s || Math.Abs(dy) > DragThreshold * s)) { _dragging = true; _hold.Stop(); }
+        if (!_dragging && (Math.Abs(dx) > DragThreshold * s || Math.Abs(dy) > DragThreshold * s)) { _dragging = true; _hold.Stop(); DragBegan?.Invoke(this); }
         if (!_dragging) return;
         // Anchor the card, not the window: the pad inside the window is DIPs, so its size in pixels changes with the monitor.
         var card = LineLayout.DraggedCard(_pressCard, new Point(_pressCursor.X, _pressCursor.Y), new Point(p.X, p.Y));
@@ -241,9 +296,12 @@ internal sealed class PinWindow : Window
         Native.MoveTo(Hwnd, w.X, w.Y);
         double now = Scale; // crossing a seam: WPF has just applied WM_DPICHANGED's suggested rect; put the card back under the cursor
         if (now != s) { w = LineLayout.WindowForCard(card, Pad, now); Native.MoveTo(Hwnd, w.X, w.Y); }
+        _spot = card;
         Kick(-(p.X - _lastCursor.X) / s * 7);
         _lastCursor = p;
         e.Handled = true;
+        Dragged?.Invoke(this);
+        if (_pressed && _shake.Add(p.X / s, Environment.TickCount64)) Shaken?.Invoke(this);
     }
 
     private void Up(object sender, MouseButtonEventArgs e)
@@ -256,17 +314,20 @@ internal sealed class PinWindow : Window
     }
 
     /// <summary>Ends a press; a drag is saved here, on mouse up (or when capture is lost), never while moving.</summary>
-    private void EndPress()
+    public void EndPress()
     {
+        if (!_pressed) return;
         _hold.Stop();
         _pressed = false;
+        bool dropped = _dragging;
         if (_dragging)
         {
             _dragging = false;
             _spot = CardPx;
-            _app.Library.MovePin(Item, _spot.X, _spot.Y, Item.PinWidth, Item.PinHeight);
+            SaveSpot();
         }
         Card.ReleaseMouseCapture();
+        if (dropped) Dropped?.Invoke(this);
     }
 
     // ───────────── resize ─────────────

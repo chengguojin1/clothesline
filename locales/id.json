@@ -58,13 +58,18 @@
   "color.sand": "Pasir",
   "color.grey": "Abu-abu",
 
-  "spotlight.noteHint": "Esc atau klik di luar untuk menggantung kembali",
+  "spotlight.noteHint": "Esc atau klik di luar untuk menggantung kembali  ·  Ctrl+V menambah gambar",
   "spotlight.imageHint": "Esc tutup  ·  Ctrl+C salin  ·  Del buang",
 
   "toast.copied": "Tersalin",
   "toast.copyFailed": "Gagal menyalin",
   "toast.saved": "Tersimpan",
   "toast.sent": "Terkirim",
+  "note.addImage": "Tambahkan gambar",
+  "note.removeImage": "Hapus gambar",
+  "shot.notePlaceholder": "Tulis catatan…",
+  "toast.tidied": "Dirapikan",
+  "toast.ungrouped": "Lepas dari tumpukan",
   "toast.movedTo": "Pindah ke {0}",
 
   "capture.drag": "Seret",

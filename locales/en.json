@@ -58,13 +58,18 @@
   "color.sand": "Sand",
   "color.grey": "Cloud",
 
-  "spotlight.noteHint": "Esc or click outside to hang it back",
+  "spotlight.noteHint": "Esc or click outside to hang it back  ·  Ctrl+V adds a picture",
   "spotlight.imageHint": "Esc to close  ·  Ctrl+C copy  ·  Del discard",
 
   "toast.copied": "Copied",
   "toast.copyFailed": "Couldn't copy",
   "toast.saved": "Saved",
   "toast.sent": "Sent",
+  "note.addImage": "Add a picture",
+  "note.removeImage": "Remove picture",
+  "shot.notePlaceholder": "Write a note…",
+  "toast.tidied": "Tidied up",
+  "toast.ungrouped": "Out of the pile",
   "toast.movedTo": "Moved to {0}",
 
   "capture.drag": "Drag",

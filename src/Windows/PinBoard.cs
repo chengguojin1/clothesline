@@ -15,6 +15,15 @@ internal sealed class PinBoard
     private string _ropeId;
     private bool _lifted;
 
+    // DIPs each card of a pile sits right of and below the one under it; ms between cards gliding into place
+    private const double PileDx = 22, PileDy = 16, TidyGap = 24;
+    private const int Stagger = 45;
+
+    // a card being dragged: where its pile mates were when it started, and the card it groups with if let go now
+    private readonly Dictionary<PinWindow, Point> _carried = new();
+    private Point _carrierFrom;
+    private PinWindow? _target;
+
     public PinBoard(JemurApp app)
     {
         _app = app;
@@ -53,6 +62,10 @@ internal sealed class PinBoard
     private PinWindow Add(HangItem item)
     {
         var w = new PinWindow(_app, item);
+        w.DragBegan += BeginCarry;
+        w.Dragged += Carry;
+        w.Dropped += Drop;
+        w.Shaken += OnShaken;
         if (!item.Pinned)
         {
             Native.GetCursorPos(out var cursor);
@@ -160,5 +173,144 @@ internal sealed class PinBoard
         _windows.Remove(w);
         w.Card.Toast(toast);
         w.FadeAway(1100, Motion.Enabled);
+    }
+
+    // ───────────── piles (groups on the desktop) ─────────────
+
+    private PinWindow? Window(string id) => _windows.FirstOrDefault(w => w.Item.Id == id);
+
+    /// <summary>The windows of a group, bottom of the pile first.</summary>
+    private List<PinWindow> Pile(CardGroup g) => g.ItemIds.Select(Window).OfType<PinWindow>().ToList();
+
+    private List<PinWindow> Mates(PinWindow w) =>
+        _app.Library.GroupOf(w.Item) is { } g ? Pile(g).Where(o => o != w).ToList() : new();
+
+    private static Rect RectOf(PinWindow w) => new(w.CardPx, w.CardSizePx(w.Scale));
+
+    /// <summary>Dragging any card of a pile carries the whole pile.</summary>
+    private void BeginCarry(PinWindow w)
+    {
+        _carried.Clear();
+        _carrierFrom = w.CardPx;
+        foreach (var m in Mates(w)) _carried[m] = m.CardPx;
+    }
+
+    private void Carry(PinWindow w)
+    {
+        var delta = w.CardPx - _carrierFrom;
+        foreach (var (m, from) in _carried)
+        {
+            double was = m.CardPx.X;
+            m.PlaceAt(from + delta);
+            m.Kick(-(from.X + delta.X - was) / m.Scale * 7);
+        }
+        var r = RectOf(w);
+        var centre = new Point(r.X + r.Width / 2, r.Y + r.Height / 2);
+        SetTarget(_windows.LastOrDefault(o => o != w && o.IsVisible && !_carried.ContainsKey(o) && RectOf(o).Contains(centre)));
+    }
+
+    /// <summary>The card under a dragged one grows a little: letting go there puts them in one pile.</summary>
+    private void SetTarget(PinWindow? t)
+    {
+        if (t == _target) return;
+        _target?.Card.Beckon(false);
+        _target = t;
+        if (t == null) return;
+        t.Card.Beckon(true);
+        t.Kick((Random.Shared.NextDouble() < .5 ? -1 : 1) * 24);
+    }
+
+    private void Drop(PinWindow w)
+    {
+        var target = _target;
+        SetTarget(null);
+        foreach (var m in _carried.Keys) m.SaveSpot();
+        _carried.Clear();
+        if (target != null && _windows.Contains(target)) Merge(w, target);
+    }
+
+    /// <summary>A card (with its pile, if it has one) joins the pile of the card it was dropped on, or starts one with it.</summary>
+    private void Merge(PinWindow w, PinWindow target)
+    {
+        var moving = _app.Library.GroupOf(w.Item) is { } own ? Pile(own) : new List<PinWindow> { w };
+        var g = _app.Library.GroupOf(target.Item) ?? _app.Library.CreateGroup(target.Item, _app.NextGroupName(target.Item.RopeId ?? Rope.DefaultId));
+        foreach (var m in moving) _app.Library.JoinGroup(m.Item, g.Id, int.MaxValue);
+        Arrange(g);
+    }
+
+    /// <summary>A pile fans out neatly from its bottom card: each card glides to its place a little after the one before.</summary>
+    private void Arrange(CardGroup g, int delayMs = 0)
+    {
+        var pile = Pile(g);
+        if (pile.Count == 0) return;
+        var at = pile[0].CardPx;
+        double s = pile[0].Scale;
+        for (int i = 0; i < pile.Count; i++)
+        {
+            pile[i].Front();
+            if (i > 0) pile[i].GlideTo(at + new Vector(i * PileDx * s, i * PileDy * s), delayMs + Stagger * (i - 1));
+        }
+    }
+
+    /// <summary>
+    /// Shaking a card while dragging it: a card in a pile shakes loose (and drags on alone); a loose card tidies the
+    /// desktop, lining every card and pile on its monitor up in rows.
+    /// </summary>
+    private void OnShaken(PinWindow w)
+    {
+        SetTarget(null);
+        if (_app.Library.GroupOf(w.Item) != null) { Loosen(w.Item); return; }
+        w.EndPress();
+        Tidy(w);
+    }
+
+    /// <summary>Takes a card out of its pile; a pile of one is no pile, so the last card is let go too. The rest close up.</summary>
+    public void Loosen(HangItem item)
+    {
+        var w = WindowOf(item);
+        if (_app.Library.GroupOf(item) is not { } g) return;
+        foreach (var m in _carried.Keys) m.SaveSpot();
+        _carried.Clear(); // the pile stays where it got to; the shaken card goes on alone
+        if (g.ItemIds.Count <= 2) _app.Library.Ungroup(g.Id);
+        else
+        {
+            _app.Library.LeaveGroup(item);
+            Arrange(g);
+        }
+        if (w == null) return;
+        w.Card.Pulse();
+        w.Card.Toast(L.T("toast.ungrouped"));
+        w.Kick((Random.Shared.NextDouble() < .5 ? -1 : 1) * 90);
+    }
+
+    private void Tidy(PinWindow shaken)
+    {
+        var c = shaken.CardPx;
+        var r = Native.MonitorAt(new Native.POINT { X = (int)c.X, Y = (int)c.Y }, workArea: true);
+        var area = new Rect(r.Left, r.Top, r.Width, r.Height);
+        double s = Native.ScaleAt(area.TopLeft);
+        var units = _windows
+            .Where(w => w.IsVisible && (_app.Library.GroupOf(w.Item) is not { } g || Pile(g).FirstOrDefault() == w))
+            .Select(w => (Lead: w, Group: _app.Library.GroupOf(w.Item), Rect: RectOf(w)))
+            .Where(u => area.Contains(new Point(u.Rect.X + u.Rect.Width / 2, u.Rect.Y + u.Rect.Height / 2)))
+            .OrderBy(u => Math.Round((u.Rect.Y - area.Top) / (160 * s))).ThenBy(u => u.Rect.X) // reading order, rows about a card tall
+            .ToList();
+        var sizes = units.Select(u =>
+        {
+            int n = u.Group == null ? 1 : Pile(u.Group).Count;
+            return new Size(u.Rect.Width + (n - 1) * PileDx * s, u.Rect.Height + (n - 1) * PileDy * s);
+        }).ToList();
+        var spots = LineLayout.Flow(area, sizes, LineLayout.SpotMargin * s, TidyGap * s);
+        for (int i = 0; i < units.Count; i++)
+        {
+            int delay = Stagger * i;
+            units[i].Lead.GlideTo(spots[i], delay);
+            if (units[i].Group is { } g)
+            {
+                var pile = Pile(g);
+                for (int k = 1; k < pile.Count; k++) pile[k].GlideTo(spots[i] + new Vector(k * PileDx * s, k * PileDy * s), delay + 30 * k);
+            }
+        }
+        shaken.Card.Toast(L.T("toast.tidied"));
     }
 }
