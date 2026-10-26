@@ -124,11 +124,12 @@ internal sealed class Library
     /// <summary>Coalesces bursts of edits (typing, dragging) into one write.</summary>
     public void ScheduleSave()
     {
-        _saveTimer ??= new Timer(_ => Post(SaveNow));
+        _saveTimer ??= new Timer(_ => Post(() => SaveNow()));
         _saveTimer.Change(500, Timeout.Infinite);
     }
 
-    public void SaveNow()
+    /// <summary>Writes items.json now; false when it could not be written.</summary>
+    public bool SaveNow()
     {
         _saveTimer?.Change(Timeout.Infinite, Timeout.Infinite);
         var dir = _dataDir;
@@ -147,8 +148,9 @@ internal sealed class Library
             var tmp = file + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(shape, Json));
             File.Move(tmp, file, true);
+            return true;
         }
-        catch (Exception ex) { Log.Error("Saving items failed", ex); }
+        catch (Exception ex) { Log.Error("Saving items failed", ex); return false; }
     }
 
     private void Post(Action a)
@@ -388,9 +390,16 @@ internal sealed class Library
 
     private void DeleteFile(HangItem item)
     {
-        // Only ever delete PNGs we created, and only if nothing else still points at them.
-        if (item.Kind != ItemKind.Image || !AppPaths.IsOwnedShot(item.File)) return;
-        if (_items.Concat(_discarded).Any(o => o != item && string.Equals(o.File, item.File, StringComparison.OrdinalIgnoreCase))) return;
-        try { File.Delete(item.File!); } catch (Exception ex) { Log.Warn($"Could not delete {item.File}", ex); }
+        DeleteOwned(item, item.File);
+        DeleteOwned(item, item.Link?.Image);
+    }
+
+    /// <summary>Deletes a picture Jemur made (screenshot, a note's picture, a link preview), only if no other item still points at it.</summary>
+    public void DeleteOwned(HangItem owner, string? path)
+    {
+        if (!AppPaths.IsOwnedShot(path)) return;
+        bool Same(string? p) => string.Equals(p, path, StringComparison.OrdinalIgnoreCase);
+        if (_items.Concat(_discarded).Any(o => o != owner && (Same(o.File) || Same(o.Link?.Image)))) return;
+        try { File.Delete(path!); } catch (Exception ex) { Log.Warn($"Could not delete {path}", ex); }
     }
 }

@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Jemur.Core;
 using Jemur.Interop;
 using Jemur.UI;
@@ -32,6 +33,11 @@ internal sealed class JemurApp
     private TrayIcon _tray = null!;
     private HttpClient? _updateHttp;
     private UpdateCoordinator? _updates;
+    private HttpClient? _downloadHttp;
+    private HttpClient? _linkHttp;
+    private readonly Dictionary<string, CancellationTokenSource> _linkWaits = new();
+    private UpdateInstaller? _installer;
+    private bool _trayMenuOpen;
     private ControlPanel? _panel;
     private SpotlightWindow? _spotlight;
     private MarkupWindow? _markup;
@@ -44,14 +50,17 @@ internal sealed class JemurApp
     public bool HasOverlay => _spotlight != null || _markup != null || _capturing;
     internal IUpdateChecker UpdateChecker { get; private set; } = null!;
 
-    public JemurApp(Application wpf, bool background, string? renderDocs = null)
+    public JemurApp(Application wpf, bool background, string? renderDocs = null, string? updated = null)
     {
         _wpf = wpf;
         _background = background;
         _renderDocs = renderDocs;
+        _updated = updated;
     }
 
     private readonly string? _renderDocs;
+    /// <summary>The version a self-update restarted us for (<c>--updated &lt;v&gt;</c>).</summary>
+    private readonly string? _updated;
 
     /// <summary>
     /// Developer tool: <c>Jemur.exe --render-docs &lt;folder&gt;</c> renders the control panel in dark and light
@@ -115,6 +124,8 @@ internal sealed class JemurApp
         else if (Line.StaysOut) Line.Show();
         Pins = new PinBoard(this);
         Library.Changed += () => _tray?.SetTip(TrayTip());
+        Library.Added += WatchLink;
+        Library.Updated += WatchLink;
 
         _tray = new TrayIcon();
         _tray.Click += ToggleLift;
@@ -123,6 +134,7 @@ internal sealed class JemurApp
         _updateHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
         UpdateChecker = new UpdateChecker(_updateHttp, Version, new Uri(ManifestUrl), RepoUrl);
         _updates = new UpdateCoordinator(UpdateChecker, _tray.Notify, () => ShowPanel(), TimeProvider.System, TimeSpan.FromSeconds(30), TimeSpan.FromHours(24));
+        StartInstaller();
         _updates.Start();
         Theme.Changed += () => _tray.SetIcon(Theme.IsTaskbarLight());
         L.Changed += () => _tray.SetTip(TrayTip());
@@ -154,14 +166,60 @@ internal sealed class JemurApp
     public void Stop()
     {
         if (_renderDocs == null) Library.SaveNow();
+        _installer?.Dispose();
         _updates?.Dispose();
         _updateHttp?.Dispose();
+        _downloadHttp?.Dispose();
+        _linkHttp?.Dispose();
         _hotkeys?.Dispose();
         _tray?.Dispose();
         Log.Info("Jemur stopped");
     }
 
-    public void Quit() => _wpf.Shutdown();
+    /// <summary>Quitting with an update staged installs it on the way out.</summary>
+    public void Quit()
+    {
+        if (_installer?.ApplyNow() != true) _wpf.Shutdown();
+    }
+
+    // ───────────── self-update ─────────────
+
+    private bool AutoUpdateAllowed(string version) => Settings.AutoUpdate && version != Settings.SkipAutoUpdateVersion;
+
+    private void StartInstaller()
+    {
+        var outcome = UpdateInstaller.UpdatedOutcome(_updated, Version);
+        if (outcome == UpdateOutcome.Done) _tray.Notify("Jemur", L.F("update.done", Version));
+        else if (outcome == UpdateOutcome.Failed)
+        {
+            // The installer ran but this is still the old Jemur: never try that version again by itself.
+            Log.Warn($"Restarted for {_updated} but still running {Version}");
+            Settings.SkipAutoUpdateVersion = _updated!;
+            SettingsStore.Save(Settings);
+            _tray.Notify("Jemur", L.T("update.failed"), warning: true);
+        }
+
+        bool installed = UpdateInstaller.IsInstalled();
+        if (!installed && Environment.ProcessPath is { } exe) UpdatePackage.CleanupOld(exe);
+        _downloadHttp = new HttpClient { Timeout = Timeout.InfiniteTimeSpan }; // the installer applies its own 10-minute limit
+        var host = new UpdateHost(_wpf.Dispatcher, AutoUpdateAllowed,
+            Busy: () => HasOverlay || Line.MenuOpen || _trayMenuOpen || System.Windows.Interop.ComponentDispatcher.IsThreadModal,
+            Save: () => { var ok = Library.SaveNow(); SettingsStore.Save(Settings); return ok; },
+            Exit: _wpf.Shutdown,
+            Fallback: (m, skip) =>
+            {
+                if (skip) { Settings.SkipAutoUpdateVersion = m.Version; SettingsStore.Save(Settings); }
+                _updates?.NotifyAvailable(m);
+            });
+        _installer = new UpdateInstaller(_downloadHttp, UpdateInstaller.DefaultFolder, new Uri(ManifestUrl), installed, host);
+        _installer.CleanUp(keepStaged: outcome == UpdateOutcome.None && Settings.AutoUpdate);
+        _updates!.Stage = m =>
+        {
+            if (!AutoUpdateAllowed(m.Version)) return false;
+            _ = _installer.StageAsync(m, CancellationToken.None); // reports its own failure through Fallback
+            return true;
+        };
+    }
 
     private string TrayTip() => Settings.Lifted ? L.T("tray.lifted") : $"{RopeName(ActiveRope)} · {L.N("tray.items", Library.ItemsOn(ActiveRope).Count())}";
 
@@ -468,6 +526,17 @@ internal sealed class JemurApp
         Pins.Rebuild();
     }
 
+    internal UpdateInstaller? Installer => _installer;
+
+    public void SetAutoUpdate(bool on)
+    {
+        Settings.AutoUpdate = on;
+        SettingsStore.Save(Settings);
+        _installer?.Refresh(); // off stops the quiet-moment timer (the staged file stays); on restarts it
+        // Switched off with an update waiting: say so the 0.3.0 way, or nothing would ever tell the user.
+        if (!on && _installer?.ReadyManifest is { } waiting) _updates?.NotifyAvailable(waiting);
+    }
+
     public void SetAutoHide(bool on) { Settings.AutoHide = on; Line.AutoHide = on; SettingsStore.Save(Settings); }
 
     public void SetKeepDays(int days) { Settings.KeepDiscardedDays = days; SettingsStore.Save(Settings); Library.PurgeDiscarded(days); Library.ScheduleSave(); }
@@ -591,6 +660,82 @@ internal sealed class JemurApp
         finally { Memory.TrimSoon(); }
     }
 
+    // ───────────── pictures and links on notes ─────────────
+
+    /// <summary>Puts a picture on a note (replacing the one it had), saved next to the screenshots.</summary>
+    public void AttachImage(HangItem note, BitmapSource bmp)
+    {
+        var path = Images.NewShotPath();
+        Images.SavePng(bmp, path);
+        var old = note.File;
+        note.File = path;
+        Library.DeleteOwned(note, old);
+        Library.Touch(note);
+    }
+
+    public void RemoveImage(HangItem note)
+    {
+        var old = note.File;
+        note.File = null;
+        Library.DeleteOwned(note, old);
+        Library.Touch(note);
+    }
+
+    /// <summary>
+    /// A note that names a web address gets a preview of that page: fetched once, a moment after typing stops, and kept
+    /// with the note. Removing the address removes the preview.
+    /// </summary>
+    private async void WatchLink(HangItem item)
+    {
+        if (item.Kind != ItemKind.Note) return;
+        var url = LinkPreview.FindUrl(item.Text);
+        if (url == item.Link?.Url) return;
+        if (_linkWaits.Remove(item.Id, out var waiting)) waiting.Cancel();
+        if (url == null)
+        {
+            if (item.Link == null) return;
+            var gone = item.Link.Image;
+            item.Link = null;
+            Library.DeleteOwned(item, gone);
+            Library.Touch(item);
+            return;
+        }
+        var cts = new CancellationTokenSource();
+        _linkWaits[item.Id] = cts;
+        try
+        {
+            await Task.Delay(900, cts.Token);
+            if (_linkHttp == null)
+            {
+                _linkHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+                _linkHttp.DefaultRequestHeaders.UserAgent.ParseAdd($"Mozilla/5.0 (compatible; Jemur/{Version}; link preview)");
+            }
+            var card = await LinkPreview.FetchAsync(_linkHttp, url, cts.Token);
+            if (cts.IsCancellationRequested || !Library.Items.Contains(item) || LinkPreview.FindUrl(item.Text) != url)
+            {
+                Library.DeleteOwned(item, card.Image);
+                return;
+            }
+            var old = item.Link?.Image;
+            item.Link = card;
+            Library.DeleteOwned(item, old);
+            Library.Touch(item);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Warn($"Link preview failed for {url}", ex); }
+        finally
+        {
+            if (_linkWaits.TryGetValue(item.Id, out var c) && c == cts) _linkWaits.Remove(item.Id);
+            cts.Dispose();
+        }
+    }
+
+    public void OpenLink(string url)
+    {
+        if (LinkPreview.FindUrl(url) != url) return; // only ever hand a plain web address to the shell
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch (Exception ex) { Log.Warn("Open link failed", ex); }
+    }
+
     // ───────────── item actions ─────────────
 
     public void Spotlight(HangItem item)
@@ -631,12 +776,12 @@ internal sealed class JemurApp
         try
         {
             var data = new DataObject();
-            if (item.Kind == ItemKind.Image && item.File != null)
+            if (item.File != null && File.Exists(item.File))
             {
                 data.SetImage(Images.Load(item.File));
                 data.SetFileDropList(new StringCollection { item.File });
             }
-            else data.SetText(item.Text);
+            if (item.Kind == ItemKind.Note) data.SetText(item.Text); // not a screenshot's note: text would win over the picture in most apps
             Clipboard.SetDataObject(data, true); // copy=true: hand the data to Windows so we don't keep it alive
             ViewOf(item)?.Toast(L.T("toast.copied"));
             Memory.TrimSoon();
@@ -747,7 +892,8 @@ internal sealed class JemurApp
             }
             m.Items.Add(move);
         }
-        if (!InDesktopMode) m.Items.Add(GroupMenuItem(item)); // groups are a rope feature
+        if (!InDesktopMode) m.Items.Add(GroupMenuItem(item));
+        else if (Library.GroupOf(item) != null) m.Items.Add(Ui.MenuItem(L.T("group.leave"), () => Pins.Loosen(item))); // on the desktop a group is a pile: drop a card on another to make one
         m.Items.Add(new Separator());
         m.Items.Add(Ui.MenuItem(L.T("action.discard"), () => Discard(item), "", InDesktopMode ? null : L.T("hint.dragOff"), critical: true));
 
@@ -783,7 +929,7 @@ internal sealed class JemurApp
     }
 
     /// <summary>"Group 1", "Group 2", …: the first number no group on this rope uses yet.</summary>
-    private string NextGroupName(string ropeId)
+    public string NextGroupName(string ropeId)
     {
         var used = Library.Groups.Where(g => g.RopeId == ropeId).Select(g => g.Name).ToHashSet();
         int n = 1;
@@ -861,6 +1007,8 @@ internal sealed class JemurApp
         m.Items.Add(Ui.MenuItem(L.T("nav.settings"), () => ShowPanel(settings: true), ""));
         m.Items.Add(new Separator());
         m.Items.Add(Ui.MenuItem(L.T("action.quit"), Quit, ""));
+        _trayMenuOpen = true;
+        m.Closed += (_, _) => _trayMenuOpen = false;
 
         // A tray menu only dismisses on outside clicks if our process owns the foreground.
         Native.SetForegroundWindow(_tray.Hwnd);

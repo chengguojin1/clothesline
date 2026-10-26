@@ -36,6 +36,13 @@ internal sealed class SpotlightWindow : Window
     private Border? _flash;
     private FrameworkElement? _card;
 
+    // a note's picture and link preview; a screenshot's note
+    private Grid? _attach;
+    private Image? _attachImg, _linkImg;
+    private Border? _link;
+    private TextBlock? _linkTitle, _linkText, _linkHost;
+    private TextBox? _caption;
+
     public event Action<HangItem>? Finished;
 
     public SpotlightWindow(HangItem item, JemurApp app, Point origin)
@@ -83,6 +90,14 @@ internal sealed class SpotlightWindow : Window
         Loaded += (_, _) => AnimateIn();
         Deactivated += (_, _) => { if (_ready && !_suspendDeactivate) Dismiss(); };
         PreviewKeyDown += OnKey;
+        _app.Library.Updated += OnUpdated;
+        Closed += (_, _) => _app.Library.Updated -= OnUpdated;
+    }
+
+    /// <summary>A link preview arrived, or the picture changed.</summary>
+    private void OnUpdated(HangItem item)
+    {
+        if (item == _item) RefreshExtras();
     }
 
     // ───────────── note ─────────────
@@ -100,6 +115,7 @@ internal sealed class SpotlightWindow : Window
         // footer: word count · colour swatches · copy · delete
         var footer = new DockPanel { Margin = new Thickness(0, 14, 0, 0) };
         var actions = new StackPanel { Orientation = Orientation.Horizontal };
+        actions.Children.Add(PaperButton("\uE8B9", L.T("note.addImage"), PickImage));
         actions.Children.Add(PaperButton("", L.T("action.copy"), () => { if (_app.Copy(_item)) Flash(L.T("toast.copied")); }));
         actions.Children.Add(PaperButton("", L.T("action.discard"), () => Dismiss(() => _app.Discard(_item))));
         DockPanel.SetDock(actions, Dock.Right);
@@ -125,6 +141,26 @@ internal sealed class SpotlightWindow : Window
         dock.Children.Add(footer);
         RefreshSwatches();
 
+        // the note's link preview above the footer, its picture above the text
+        _link = LinkPreviewCard();
+        DockPanel.SetDock(_link, Dock.Bottom);
+        dock.Children.Add(_link);
+        _attachImg = new Image { Stretch = Stretch.Uniform, MaxHeight = 150, HorizontalAlignment = HorizontalAlignment.Left, Cursor = Cursors.Hand, ToolTip = L.T("action.open") };
+        RenderOptions.SetBitmapScalingMode(_attachImg, BitmapScalingMode.HighQuality);
+        _attachImg.MouseLeftButtonUp += (_, _) => { _app.OpenFile(_item); Dismiss(); };
+        var remove = PaperButton("\uE711", L.T("note.removeImage"), () => _app.RemoveImage(_item));
+        remove.HorizontalAlignment = HorizontalAlignment.Right;
+        remove.VerticalAlignment = VerticalAlignment.Top;
+        _attach = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        _attach.Children.Add(_attachImg);
+        _attach.Children.Add(remove);
+        DockPanel.SetDock(_attach, Dock.Top);
+        dock.Children.Add(_attach);
+        // drop a picture file on the paper to put it on the note
+        _paper.AllowDrop = true;
+        _paper.PreviewDragOver += (_, e) => { if (ImageFiles(e.Data).Any()) { e.Effects = DragDropEffects.Copy; e.Handled = true; } };
+        _paper.PreviewDrop += (_, e) => { if (ImageFiles(e.Data).FirstOrDefault() is { } f) { AttachFile(f); e.Handled = true; } };
+
         var area = new Grid();
         _box = new TextBox
         {
@@ -148,12 +184,91 @@ internal sealed class SpotlightWindow : Window
         dock.Children.Add(area);
         UpdateCount();
         _paper.Child = dock;
+        RefreshExtras();
 
         var holder = new Grid();
         holder.Children.Add(_paper);
         holder.Children.Add(BigPin());
         _card = holder;
         return holder;
+    }
+
+    private Border LinkPreviewCard()
+    {
+        _linkImg = new Image { Width = 72, Height = 72, Stretch = Stretch.UniformToFill, Margin = new Thickness(0, 0, 12, 0) };
+        RenderOptions.SetBitmapScalingMode(_linkImg, BitmapScalingMode.HighQuality);
+        _linkTitle = new TextBlock { FontFamily = Theme.Font, FontSize = 13.5, FontWeight = FontWeights.SemiBold, Foreground = Theme.Ink, TextTrimming = TextTrimming.CharacterEllipsis };
+        _linkText = new TextBlock { FontFamily = Theme.Font, FontSize = 12, Foreground = InkFaint, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 34, Margin = new Thickness(0, 2, 0, 2) };
+        _linkHost = new TextBlock { FontFamily = Theme.Font, FontSize = 11.5, Foreground = InkFaint };
+        var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        words.Children.Add(_linkTitle);
+        words.Children.Add(_linkText);
+        words.Children.Add(_linkHost);
+        var row = new DockPanel();
+        row.Children.Add(_linkImg);
+        row.Children.Add(words);
+        var card = new Border
+        {
+            Child = row, Padding = new Thickness(8), Margin = new Thickness(0, 10, 0, 0), CornerRadius = new CornerRadius(4),
+            Background = InkHover, Cursor = Cursors.Hand, Visibility = Visibility.Collapsed,
+        };
+        card.MouseLeftButtonUp += (_, _) => { if (_item.Link is { } l) { _app.OpenLink(l.Url); Dismiss(); } };
+        return card;
+    }
+
+    /// <summary>Shows the note's picture and link preview as they are now.</summary>
+    private void RefreshExtras()
+    {
+        if (_attach == null || _link == null) return;
+        BitmapSource? pic = null;
+        try { if (_item.File != null && System.IO.File.Exists(_item.File)) pic = Images.Load(_item.File, 900); } catch (Exception ex) { Log.Warn("Note picture failed", ex); }
+        _attachImg!.Source = pic;
+        _attach.Visibility = pic != null ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_item.Link is not { } link) { _link.Visibility = Visibility.Collapsed; return; }
+        _link.Visibility = Visibility.Visible;
+        _linkTitle!.Text = link.Title;
+        _linkText!.Text = link.Description ?? "";
+        _linkText.Visibility = link.Description != null ? Visibility.Visible : Visibility.Collapsed;
+        _linkHost!.Text = Uri.TryCreate(link.Url, UriKind.Absolute, out var u) ? u.Host : link.Url;
+        BitmapSource? img = null;
+        try { if (link.Image != null && System.IO.File.Exists(link.Image)) img = Images.Thumbnail(link.Image, 144); } catch (Exception ex) { Log.Warn("Link picture failed", ex); }
+        _linkImg!.Source = img;
+        _linkImg.Visibility = img != null ? Visibility.Visible : Visibility.Collapsed;
+        _link.ToolTip = link.Url;
+    }
+
+    private static readonly string[] PictureTypes = { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tif", ".tiff" };
+
+    private static IEnumerable<string> ImageFiles(IDataObject? data) =>
+        data != null && data.GetDataPresent(DataFormats.FileDrop) && data.GetData(DataFormats.FileDrop) is string[] files
+            ? files.Where(f => PictureTypes.Contains(System.IO.Path.GetExtension(f).ToLowerInvariant()))
+            : Enumerable.Empty<string>();
+
+    private void AttachFile(string path)
+    {
+        try { _app.AttachImage(_item, Images.Load(path)); }
+        catch (Exception ex) { Log.Warn($"Could not put {path} on a note", ex); }
+    }
+
+    private void PickImage()
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = L.T("note.addImage") + "|" + string.Join(";", PictureTypes.Select(t => "*" + t)) };
+        _suspendDeactivate = true;
+        try { if (dlg.ShowDialog(this) == true) AttachFile(dlg.FileName); }
+        finally { _suspendDeactivate = false; Native.ForceForeground(this); }
+    }
+
+    /// <summary>Ctrl+V with a picture (a screenshot from Win+Shift+S, or an image file) on the clipboard puts it on the note.</summary>
+    private bool PastePicture()
+    {
+        try
+        {
+            if (Clipboard.ContainsImage() && Clipboard.GetImage() is { } img) { _app.AttachImage(_item, img); return true; }
+            if (Clipboard.ContainsFileDropList() && ImageFiles(Clipboard.GetDataObject()).FirstOrDefault() is { } f) { AttachFile(f); return true; }
+        }
+        catch (Exception ex) { Log.Warn("Pasting a picture failed", ex); }
+        return false;
     }
 
     private static readonly Brush InkFaint = Theme.Freeze(new SolidColorBrush(Color.FromArgb(0x8C, 0x33, 0x2C, 0x1E)));
@@ -240,19 +355,44 @@ internal sealed class SpotlightWindow : Window
         RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
         var print = new Border
         {
-            Background = Brushes.White, CornerRadius = new CornerRadius(3), Padding = new Thickness(12, 12, 12, 36),
+            Background = Brushes.White, CornerRadius = new CornerRadius(3), Padding = new Thickness(12, 12, 12, 10),
             Effect = new DropShadowEffect { BlurRadius = 48, ShadowDepth = 18, Direction = 270, Opacity = 0.42 },
             HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 22, 0, 0),
         };
-        var inner = new Grid();
-        inner.Children.Add(new Border { Child = img, Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)) });
+        var inner = new DockPanel { Width = w };
+        var shot = new Border { Child = img, Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)) };
+        DockPanel.SetDock(shot, Dock.Top);
+        inner.Children.Add(shot);
         var caption = new TextBlock
         {
             Text = _item.Created.ToString("d MMM yyyy · HH.mm", L.Culture) + (pw > 0 ? $"  ·  {pw} × {ph}" : ""),
             FontFamily = Theme.Font, FontSize = 12, Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80)),
-            VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(2, 0, 0, -26),
+            VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(12, 12, 0, 0),
         };
+        DockPanel.SetDock(caption, Dock.Right);
         inner.Children.Add(caption);
+        // the note written on the screenshot, in the polaroid's bottom strip
+        _caption = new TextBox
+        {
+            Text = _item.Text, FontFamily = Theme.Hand, FontSize = 17, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true, MaxHeight = 100,
+            Background = Brushes.Transparent, BorderThickness = new Thickness(0), Foreground = Theme.Ink, CaretBrush = Theme.Ink,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0), FocusVisualStyle = null,
+            SelectionBrush = new SolidColorBrush(Color.FromRgb(0x8A, 0x6D, 0x2B)), SelectionOpacity = 0.3, Template = PlainTextBoxTemplate(),
+        };
+        _caption.SpellCheck.IsEnabled = false;
+        Ui.AutomationName(_caption, L.T("shot.notePlaceholder"));
+        var hintText = new TextBlock { Text = L.T("shot.notePlaceholder"), FontFamily = Theme.Hand, FontSize = 17, Foreground = Theme.Ink, Opacity = 0.32, IsHitTestVisible = false, Margin = new Thickness(2, 0, 0, 0) };
+        hintText.Visibility = _caption.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        _caption.TextChanged += (_, _) =>
+        {
+            _item.Text = _caption.Text;
+            hintText.Visibility = _caption.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            _app.Library.Touch(_item);
+        };
+        var write = new Grid { Margin = new Thickness(0, 8, 0, 0), MinHeight = 26, Cursor = Cursors.IBeam };
+        write.Children.Add(hintText);
+        write.Children.Add(_caption);
+        inner.Children.Add(write);
         print.Child = inner;
         print.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { _app.OpenFile(_item); Dismiss(); } };
 
@@ -322,7 +462,10 @@ internal sealed class SpotlightWindow : Window
     private void OnKey(object sender, KeyEventArgs e)
     {
         bool ctrl = Keyboard.Modifiers == ModifierKeys.Control;
+        bool writing = _caption != null && _caption.IsKeyboardFocusWithin; // while writing on a screenshot its keys are for the text
         if (e.Key == Key.Escape || (e.Key == Key.Enter && ctrl)) { Dismiss(); e.Handled = true; }
+        else if (writing) return;
+        else if (_item.Kind == ItemKind.Note && ctrl && e.Key == Key.V && PastePicture()) e.Handled = true;
         else if (_item.Kind == ItemKind.Image && ctrl && e.Key == Key.C) { if (_app.Copy(_item)) Flash(L.T("toast.copied")); e.Handled = true; }
         else if (_item.Kind == ItemKind.Image && ctrl && e.Key == Key.S) { _suspendDeactivate = true; _app.SaveAs(_item, this); _suspendDeactivate = false; e.Handled = true; }
         else if (_item.Kind == ItemKind.Image && e.Key == Key.Delete) { Dismiss(() => _app.Discard(_item)); e.Handled = true; }

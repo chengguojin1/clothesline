@@ -112,10 +112,14 @@ and its quiet in-process background check:
 
 The client validates the semantic version, source commit and GitHub release URL
 before showing an update. It checks once about 30 seconds after startup and no
-more than once every 24 hours while Jemur is running. A newer version produces
-one tray notification per process. The application does not download, execute,
-replace or restart itself; the user chooses the GitHub release page and starts
-the installer.
+more than once every 24 hours while Jemur is running. Unless the user turned off
+**Update automatically** in Settings, Jemur downloads the package for its build
+(installer or portable EXE, x64 or arm64) from the manifest, requires an `https`
+URL on the manifest host and the manifest's size and SHA-256, and installs it
+when idle or on quit. It never runs or moves a file that fails those checks.
+With the setting off, or if an automatic update fails, a newer version produces
+one tray notification per process and the user starts the installer from the
+GitHub release page. Jemur 0.3.0 and older update by hand once.
 
 ## Automatic GitHub Releases
 

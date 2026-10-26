@@ -18,6 +18,9 @@ internal sealed class UpdateCoordinator : IDisposable
     private Task<UpdateCheckResult>? _inFlight;
     private bool _disposed;
 
+    /// <summary>Takes over an available update (download and install it); returns false to fall back to a notification.</summary>
+    internal Func<UpdateManifest, bool>? Stage { get; set; }
+
     public UpdateCoordinator(
         IUpdateChecker checker,
         Action<string, string, bool> notify,
@@ -83,11 +86,16 @@ internal sealed class UpdateCoordinator : IDisposable
     private async Task<UpdateCheckResult> CheckAndNotifyAsync(CancellationToken cancellationToken)
     {
         var result = await _checker.CheckAsync(cancellationToken);
-        if (result.Kind == UpdateCheckKind.UpdateAvailable && result.Manifest is { } manifest && _notifiedVersions.Add(manifest.Version))
-        {
-            _notify("Jemur", $"Jemur {manifest.Version} is available. Open Jemur to download it.", false);
-        }
+        if (result.Kind == UpdateCheckKind.UpdateAvailable && result.Manifest is { } manifest && Stage?.Invoke(manifest) != true)
+            NotifyAvailable(manifest);
         return result;
+    }
+
+    /// <summary>The 0.3.0 behaviour: one "open Jemur to download it" notification per version.</summary>
+    public void NotifyAvailable(UpdateManifest manifest)
+    {
+        lock (_notifiedVersions) { if (!_notifiedVersions.Add(manifest.Version)) return; }
+        _notify("Jemur", $"Jemur {manifest.Version} is available. Open Jemur to download it.", false);
     }
 
     public void Dispose()

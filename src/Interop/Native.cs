@@ -24,6 +24,16 @@ internal static partial class Native
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetCursorPos(out POINT p);
     [LibraryImport("user32.dll")] public static partial uint GetDoubleClickTime();
+    [StructLayout(LayoutKind.Sequential)] public struct LASTINPUTINFO { public uint cbSize, dwTime; }
+    [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetLastInputInfo(ref LASTINPUTINFO info);
+
+    /// <summary>How long since the last mouse or keyboard input in this session; zero when Windows can't say.</summary>
+    public static TimeSpan IdleTime()
+    {
+        var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+        return GetLastInputInfo(ref info) ? TimeSpan.FromMilliseconds(unchecked((uint)Environment.TickCount - info.dwTime)) : TimeSpan.Zero;
+    }
     [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] public static partial IntPtr GetWindowLongPtr(IntPtr h, int i);
     [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] public static partial IntPtr SetWindowLongPtr(IntPtr h, int i, IntPtr v);
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]

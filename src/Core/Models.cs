@@ -10,9 +10,12 @@ public sealed class HangItem
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ItemKind Kind { get; set; }
-    /// <summary>PNG on disk for screenshots.</summary>
+    /// <summary>PNG on disk: the screenshot, or the picture added to a note.</summary>
     public string? File { get; set; }
+    /// <summary>A note's text, or the note written on a screenshot.</summary>
     public string Text { get; set; } = "";
+    /// <summary>A preview of the first web address in a note, fetched once.</summary>
+    public LinkCard? Link { get; set; }
     /// <summary>Horizontal position along the line, 0..1, so the layout survives resolution changes.</summary>
     public double Position { get; set; } = -1;
     public int Color { get; set; }
@@ -27,6 +30,16 @@ public sealed class HangItem
     /// <summary>Desktop size in DIP at card scale 1; 0 means the default size.</summary>
     public double PinWidth { get; set; }
     public double PinHeight { get; set; }
+}
+
+/// <summary>What a web page says about itself (title, description, picture), shown under a note that links to it.</summary>
+public sealed class LinkCard
+{
+    public string Url { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string? Description { get; set; }
+    /// <summary>The page's picture, saved next to the screenshots; null if it has none.</summary>
+    public string? Image { get; set; }
 }
 
 /// <summary>A named line that items hang on.</summary>
@@ -78,6 +91,10 @@ public sealed class Settings
     public bool Welcomed { get; set; }
     public string ActiveRope { get; set; } = Rope.DefaultId;
     public bool Lifted { get; set; }
+    /// <summary>Download and install new versions in the background.</summary>
+    public bool AutoUpdate { get; set; } = true;
+    /// <summary>A version whose automatic install already failed once; it is only offered by notification.</summary>
+    public string SkipAutoUpdateVersion { get; set; } = "";
     public const string LineMode = "line", DesktopMode = "desktop";
     /// <summary>"line" (cards hang on the rope) or "desktop" (cards float free).</summary>
     public string Mode { get; set; } = LineMode;
@@ -106,6 +123,7 @@ public sealed class Settings
             Hotkeys[k] = taken ? "" : v;
         }
         CardSize = Math.Clamp(CardSize, 0, 2);
+        SkipAutoUpdateVersion ??= "";
         if (Theme is not ("system" or "light" or "dark")) Theme = "system";
         if (KeepDiscardedDays is not (1 or 7 or 30)) KeepDiscardedDays = 7;
         if (string.IsNullOrWhiteSpace(Language)) Language = "auto";

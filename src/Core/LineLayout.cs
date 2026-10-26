@@ -97,6 +97,22 @@ internal static class LineLayout
         return first ?? new Point(workArea.Left + margin, workArea.Top + margin);
     }
 
+    /// <summary>Top-lefts for sizes laid out left to right in rows from an area's top-left, wrapping at its right edge (a tidied desktop).</summary>
+    public static Point[] Flow(Rect area, IReadOnlyList<Size> sizes, double margin, double gap)
+    {
+        // ponytail: no check for running off the bottom; a desktop that full is not tidied by any layout.
+        var spots = new Point[sizes.Count];
+        double x = area.Left + margin, y = area.Top + margin, row = 0;
+        for (int i = 0; i < sizes.Count; i++)
+        {
+            if (x > area.Left + margin && x + sizes[i].Width > area.Right - margin) { x = area.Left + margin; y += row + gap; row = 0; }
+            spots[i] = new Point(x, y);
+            x += sizes[i].Width + gap;
+            row = Math.Max(row, sizes[i].Height);
+        }
+        return spots;
+    }
+
     /// <summary>A desktop card's size within its limits: notes 120..640 x 100..640; images 120..960 wide at the given aspect (width / height).
     /// Images are also at most 960 tall, which wins over the 120 minimum width for extremely tall ones (aspect under 0.125).</summary>
     public static Size ClampCardSize(bool image, Size wanted, double aspect)

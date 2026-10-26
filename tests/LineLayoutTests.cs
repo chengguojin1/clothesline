@@ -20,6 +20,13 @@ public sealed class LineLayoutTests
         Assert.Equal(expected, LineLayout.SlotIndexAt(100, W, 10, x));
 
     [Fact]
+    public void Flow_WrapsAtTheRightEdge()
+    {
+        var spots = LineLayout.Flow(new Rect(0, 0, 300, 600), new[] { new Size(100, 50), new Size(100, 80), new Size(100, 40) }, 10, 10);
+        Assert.Equal(new[] { new Point(10, 10), new Point(120, 10), new Point(10, 100) }, spots);
+    }
+
+    [Fact]
     public void IsOutsideGroup_NeedsHalfACardBeyondAnEdge()
     {
         Assert.True(LineLayout.IsOutsideGroup(100, W, 10, 50, 50));
