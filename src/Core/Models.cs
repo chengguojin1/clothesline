@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Jemur.Core;
 
-public enum ItemKind { Image, Note }
+public enum ItemKind { Image, Note, LiveWindow }
 
 /// <summary>Something hanging on the line (or lying in the discarded pile).</summary>
 public sealed class HangItem
@@ -16,6 +16,8 @@ public sealed class HangItem
     public string Text { get; set; } = "";
     /// <summary>A preview of the first web address in a note, fetched once.</summary>
     public LinkCard? Link { get; set; }
+    /// <summary>Window title shown on a LiveWindow card. The source HWND itself is runtime-only and not persisted.</summary>
+    public string? WindowTitle { get; set; }
     /// <summary>Horizontal position along the line, 0..1, so the layout survives resolution changes.</summary>
     public double Position { get; set; } = -1;
     public int Color { get; set; }
@@ -30,6 +32,10 @@ public sealed class HangItem
     /// <summary>Desktop size in DIP at card scale 1; 0 means the default size.</summary>
     public double PinWidth { get; set; }
     public double PinHeight { get; set; }
+
+    /// <summary>Runtime-only: the source window HWND for a LiveWindow card. Not serialized; stale after restart.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IntPtr RuntimeHwnd { get; set; }
 }
 
 /// <summary>What a web page says about itself (title, description, picture), shown under a note that links to it.</summary>
@@ -72,7 +78,8 @@ public static class Actions
     public const string Panel = "panel";
     public const string NextRope = "rope";
     public const string Mode = "mode";
-    public static readonly string[] All = { Screenshot, Note, Paste, Toggle, Panel, NextRope, Mode };
+    public const string HangWindow = "hangWindow";
+    public static readonly string[] All = { Screenshot, Note, Paste, Toggle, Panel, NextRope, Mode, HangWindow };
 }
 
 public sealed class Settings
@@ -108,6 +115,7 @@ public sealed class Settings
         [Actions.Panel] = "Alt+Shift+P",
         [Actions.NextRope] = "Alt+Shift+G",
         [Actions.Mode] = "Alt+Shift+M",
+        [Actions.HangWindow] = "Alt+Shift+W",
     };
 
     /// <summary>Fills in anything missing after loading a file written by an older version.</summary>

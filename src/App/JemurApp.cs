@@ -452,6 +452,7 @@ internal sealed class JemurApp
         Actions.Toggle => ToggleLift,
         Actions.NextRope => NextRope,
         Actions.Mode => ToggleMode,
+        Actions.HangWindow => () => _ = TakeWindow(),
         _ => () => ShowPanel(),
     };
 
@@ -601,6 +602,49 @@ internal sealed class JemurApp
             Pins.RestoreAfterCapture(); // also when the capture threw before the pins came back
             if (panelVisible) _panel?.Show();
             Memory.TrimSoon(); // the full-screen bitmap is the biggest allocation Jemur ever makes
+        }
+    }
+
+    /// <summary>Pick a window and hang its live thumbnail on the line.</summary>
+    public async Task TakeWindow()
+    {
+        if (_capturing) return;
+        EnsureVisible(animate: false);
+        _capturing = true;
+        try
+        {
+            LandFlights();
+            Line.Hide();
+            Pins.HideForCapture();
+            await Task.Delay(120);
+
+            var picker = new WindowPicker();
+            picker.ShowDialog();
+            if (picker.Result != IntPtr.Zero)
+            {
+                int len = Native.GetWindowTextLength(picker.Result);
+                var buf = new char[Math.Max(1, len)];
+                Native.GetWindowText(picker.Result, buf, buf.Length);
+                string title = new string(buf).Trim();
+                Hang(new HangItem
+                {
+                    Kind = ItemKind.LiveWindow,
+                    RuntimeHwnd = picker.Result,
+                    WindowTitle = title,
+                });
+                Line.HoldOpen(2000);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("TakeWindow failed", ex);
+            _tray.Notify("Jemur", ex.Message, warning: true);
+        }
+        finally
+        {
+            _capturing = false;
+            Pins.RestoreAfterCapture();
+            if (Line.StaysOut && !Settings.Lifted) Line.Show();
         }
     }
 
@@ -994,6 +1038,7 @@ internal sealed class JemurApp
         m.Items.Add(Ui.MenuItem(L.T("action.screenshot"), () => _ = TakeScreenshot(), "", HotkeyText(Actions.Screenshot)));
         m.Items.Add(Ui.MenuItem(L.T("action.newNote"), NewNote, "", HotkeyText(Actions.Note)));
         m.Items.Add(Ui.MenuItem(L.T("action.paste"), HangClipboard, "", HotkeyText(Actions.Paste)));
+        m.Items.Add(Ui.MenuItem(L.T("action.hangWindow"), () => _ = TakeWindow(), "", HotkeyText(Actions.HangWindow)));
         m.Items.Add(Ui.MenuItem(L.T(Lifted ? "action.unlift" : "action.lift"), ToggleLift, "", HotkeyText(Actions.Toggle)));
         m.Items.Add(Ui.MenuItem(L.T(InDesktopMode ? "mode.toLine" : "mode.toDesktop"), ToggleMode, "\uE718", HotkeyText(Actions.Mode)));
         var lines = Ui.MenuItem(L.T("rope.lines"), () => { }, "");

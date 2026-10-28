@@ -35,6 +35,9 @@ internal sealed class CardView : Grid
     private readonly TextBlock? _caption, _linkLine;
     private readonly Image? _thumb;
     private string? _thumbPath;
+    private readonly Border? _liveHost;
+    private readonly Border? _liveFrame;
+    private readonly TextBlock? _liveTitle;
     private readonly Border _toast;
     private readonly TextBlock _toastText;
 
@@ -82,6 +85,25 @@ internal sealed class CardView : Grid
             _paper.Child = shot;
             if (thumbnail) ReloadImage();
             RefreshNote();
+        }
+        else if (item.Kind == ItemKind.LiveWindow)
+        {
+            _paper.Background = Brushes.White;
+            _paper.Padding = new Thickness(6, 6, 6, 15);
+            Width = Math.Round(156 * Scale) + 12;
+            _paper.Height = Math.Round(100 * Scale) + 21;
+            _liveHost = new Border { Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)), ClipToBounds = true };
+            _liveFrame = new Border { Child = _liveHost, ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)) };
+            _liveTitle = new TextBlock
+            {
+                FontFamily = Theme.Hand, FontSize = 10.5, Foreground = Theme.Ink, TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(1, 0, 1, -14.5), IsHitTestVisible = false,
+                Text = item.WindowTitle ?? "",
+            };
+            var shot = new Grid();
+            shot.Children.Add(_liveFrame);
+            shot.Children.Add(_liveTitle);
+            _paper.Child = shot;
         }
         else
         {
@@ -136,6 +158,9 @@ internal sealed class CardView : Grid
 
     public double PaperHeight => _paper.Height;
     public double TotalHeight => PinHeight - PinOverlap + PaperHeight;
+
+    /// <summary>The placeholder host for a LiveWindow card; null for Image/Note cards.</summary>
+    public Border? LiveHost => _liveHost;
 
     private static readonly Brush[] ShadowBrushes =
     {

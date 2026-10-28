@@ -102,6 +102,36 @@ internal static partial class Native
     public const int DWMWA_CLOAKED = 14, DWMWA_EXTENDED_FRAME_BOUNDS = 9, DWMWA_USE_IMMERSIVE_DARK_MODE = 20,
         DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWA_SYSTEMBACKDROP_TYPE = 38;
 
+    // ───────────── DWM live thumbnails (Alt-Tab preview) ─────────────
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DWM_THUMBNAIL_PROPERTIES
+    {
+        public uint dwFlags;
+        public RECT rcDestination;
+        public RECT rcSource;
+        public byte opacity;
+        [MarshalAs(UnmanagedType.Bool)] public bool fVisible;
+        [MarshalAs(UnmanagedType.Bool)] public bool fSourceClientAreaOnly;
+    }
+    public const uint DWM_TNP_RECTDESTINATION = 0x1, DWM_TNP_RECTSOURCE = 0x2, DWM_TNP_OPACITY = 0x4,
+        DWM_TNP_VISIBLE = 0x8, DWM_TNP_SOURCECLIENTAREAONLY = 0x10;
+
+    [LibraryImport("dwmapi.dll")] public static partial int DwmRegisterThumbnail(IntPtr hwndDestination, IntPtr hwndSource, out IntPtr phThumbnailId);
+    [LibraryImport("dwmapi.dll")] public static partial int DwmUnregisterThumbnail(IntPtr hThumbnailId);
+    [DllImport("dwmapi.dll")] public static extern int DwmUpdateThumbnailProperties(IntPtr hThumbnailId, ref DWM_THUMBNAIL_PROPERTIES ptnProperties);
+
+    [LibraryImport("user32.dll")] public static partial IntPtr WindowFromPoint(POINT p);
+    [LibraryImport("user32.dll")] public static partial IntPtr GetAncestor(IntPtr h, uint flags);
+    public const uint GA_ROOT = 2;
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] public static partial IntPtr GetWindowLongPtrW(IntPtr h, int i);
+    [LibraryImport("user32.dll")] public static partial int GetWindowTextLength(IntPtr h);
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial int GetWindowText(IntPtr h, [Out] char[] buf, int max);
+    [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool IsWindow(IntPtr h);
+    [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool UnhookWinEvent(IntPtr hWinEventHook);
+    public const uint EVENT_OBJECT_DESTROY = 0x8001, EVENT_OBJECT_SHOW = 0x8002, EVENT_OBJECT_HIDE = 0x8003, WINEVENT_OUTOFCONTEXT = 0x0;
+    public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
     // ───────────── kernel32 / psapi ─────────────
     [LibraryImport("kernel32.dll")] public static partial IntPtr GetCurrentProcess();
     [LibraryImport("kernel32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
