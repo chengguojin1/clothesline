@@ -524,7 +524,7 @@ internal sealed class ControlPanel : Window
 
         list.Children.Add(Ui.GroupHeader(L.T("settings.shortcuts")));
         var shortcuts = new StackPanel();
-        foreach (var (action, glyph) in new[] { (Actions.Screenshot, ""), (Actions.Note, ""), (Actions.Paste, ""), (Actions.Toggle, ""), (Actions.NextRope, ""), (Actions.Mode, "\uE718"), (Actions.Panel, "") })
+        foreach (var (action, glyph) in new[] { (Actions.Screenshot, ""), (Actions.Note, ""), (Actions.Paste, ""), (Actions.Toggle, ""), (Actions.NextRope, ""), (Actions.Mode, "\uE718"), (Actions.HangWindow, "\uE7A7"), (Actions.Panel, "") })
         {
             Hotkey? current = s.Hotkeys.TryGetValue(action, out var str) && Hotkey.TryParse(str, out var hk) ? hk : null;
             var rec = new HotkeyRecorder(current, h => _app.SetHotkey(action, h), recording => _app.SuspendHotkeys(recording));

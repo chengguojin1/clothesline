@@ -115,7 +115,7 @@ public sealed class Settings
         [Actions.Panel] = "Alt+Shift+P",
         [Actions.NextRope] = "Alt+Shift+G",
         [Actions.Mode] = "Alt+Shift+M",
-        [Actions.HangWindow] = "Alt+Shift+W",
+        [Actions.HangWindow] = "Alt+Shift+E",
     };
 
     /// <summary>Fills in anything missing after loading a file written by an older version.</summary>
