@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
-using Jemur.Core;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 public sealed class UpdatePackageTests : IDisposable
 {
@@ -20,16 +20,16 @@ public sealed class UpdatePackageTests : IDisposable
         new("0.4.0", new string('0', 40), new Uri("https://github.com/revanapriyandi/jemur/releases/tag/v0.4.0"), files);
 
     private static UpdateManifest Real() => M(
-        F("Jemur-0.4.0-win-x64.exe", "portable", "x64"),
-        F("Jemur-0.4.0-win-arm64.exe", "portable", "arm64"),
-        F("Jemur-0.4.0-win-x64-setup.exe", "installer", "x64"),
-        F("Jemur-0.4.0-win-arm64-setup.exe", "installer", "arm64"));
+        F("Clothesline-0.4.0-win-x64.exe", "portable", "x64"),
+        F("Clothesline-0.4.0-win-arm64.exe", "portable", "arm64"),
+        F("Clothesline-0.4.0-win-x64-setup.exe", "installer", "x64"),
+        F("Clothesline-0.4.0-win-arm64-setup.exe", "installer", "arm64"));
 
     [Fact]
     public void Select_PicksInstallerOrPortableForArch()
     {
-        Assert.Equal("Jemur-0.4.0-win-x64-setup.exe", UpdatePackage.Select(Real(), Manifest, "x64", true)?.Name);
-        Assert.Equal("Jemur-0.4.0-win-arm64.exe", UpdatePackage.Select(Real(), Manifest, "arm64", false)?.Name);
+        Assert.Equal("Clothesline-0.4.0-win-x64-setup.exe", UpdatePackage.Select(Real(), Manifest, "x64", true)?.Name);
+        Assert.Equal("Clothesline-0.4.0-win-arm64.exe", UpdatePackage.Select(Real(), Manifest, "arm64", false)?.Name);
     }
 
     [Fact]
@@ -87,9 +87,9 @@ public sealed class UpdatePackageTests : IDisposable
     [Fact]
     public void HelperScript_QuotesPathsWithSpacesAndApostrophes()
     {
-        var s = UpdatePackage.HelperScript(4242, @"C:\Temp\Jemur Setup.exe", @"C:\Users\O'Neil\Jemur App\Jemur.exe", "0.4.0");
-        Assert.Contains(@"'C:\Users\O''Neil\Jemur App\Jemur.exe'", s);
-        Assert.Contains(@"'C:\Temp\Jemur Setup.exe'", s);
+        var s = UpdatePackage.HelperScript(4242, @"C:\Temp\Clothesline Setup.exe", @"C:\Users\O'Neil\Clothesline App\Clothesline.exe", "0.4.0");
+        Assert.Contains(@"'C:\Users\O''Neil\Clothesline App\Clothesline.exe'", s);
+        Assert.Contains(@"'C:\Temp\Clothesline Setup.exe'", s);
         Assert.Contains("Wait-Process -Id 4242 -ErrorAction SilentlyContinue", s);
         Assert.Contains("'/S' -Wait", s);
         Assert.Contains("'--background','--updated','0.4.0'", s);
@@ -98,8 +98,8 @@ public sealed class UpdatePackageTests : IDisposable
     [Fact]
     public void PortableSwap_Succeeds()
     {
-        var exe = Write("Jemur.exe", [1, 2]); var n = Write("new.exe", [3, 4, 5]);
-        Write("Jemur.exe.old", [9]);
+        var exe = Write("Clothesline.exe", [1, 2]); var n = Write("new.exe", [3, 4, 5]);
+        Write("Clothesline.exe.old", [9]);
         Assert.True(UpdatePackage.PortableSwap(exe, n));
         Assert.Equal(new byte[] { 3, 4, 5 }, File.ReadAllBytes(exe));
         Assert.Equal(new byte[] { 1, 2 }, File.ReadAllBytes(exe + ".old"));
@@ -108,7 +108,7 @@ public sealed class UpdatePackageTests : IDisposable
     [Fact]
     public void PortableSwap_FailedMoveRestoresOriginal()
     {
-        var exe = Write("Jemur.exe", [1, 2]);
+        var exe = Write("Clothesline.exe", [1, 2]);
         Assert.False(UpdatePackage.PortableSwap(exe, Path.Combine(_dir, "missing.exe")));
         Assert.Equal(new byte[] { 1, 2 }, File.ReadAllBytes(exe));
     }
@@ -116,7 +116,7 @@ public sealed class UpdatePackageTests : IDisposable
     [Fact]
     public void CleanupOld_DeletesLeftover()
     {
-        var exe = Write("Jemur.exe", [1]); var old = Write("Jemur.exe.old", [2]);
+        var exe = Write("Clothesline.exe", [1]); var old = Write("Clothesline.exe.old", [2]);
         UpdatePackage.CleanupOld(exe);
         Assert.False(File.Exists(old));
         UpdatePackage.CleanupOld(exe);
@@ -132,8 +132,8 @@ public sealed class UpdatePackageTests : IDisposable
     [Fact]
     public void HelperScript_DoublesTypographicQuotes()
     {
-        var s = UpdatePackage.HelperScript(1, @"C:\a.exe", "C:\\Users\\O\u2019Neil\\Jemur.exe", "0.4.0");
-        Assert.Contains("'C:\\Users\\O\u2019\u2019Neil\\Jemur.exe'", s);
+        var s = UpdatePackage.HelperScript(1, @"C:\a.exe", "C:\\Users\\O\u2019Neil\\Clothesline.exe", "0.4.0");
+        Assert.Contains("'C:\\Users\\O\u2019\u2019Neil\\Clothesline.exe'", s);
     }
 
     [Fact]

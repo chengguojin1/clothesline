@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
-using Jemur.Core;
+using Clothesline.Core;
 
-namespace Jemur.UI;
+namespace Clothesline.UI;
 
 /// <summary>A small Fluent dialog that asks for one line of text.</summary>
 internal static class Prompt

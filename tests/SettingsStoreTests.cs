@@ -1,9 +1,9 @@
 using System.IO;
 using System.Text.Json;
-using Jemur.Core;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 [Collection("AppPaths")]
 public sealed class SettingsStoreTests : IDisposable

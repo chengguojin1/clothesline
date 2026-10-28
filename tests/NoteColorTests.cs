@@ -1,10 +1,10 @@
 using System.IO;
 using System.Text.Json;
 using System.Windows.Media;
-using Jemur.Windows;
+using Clothesline.Windows;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 public class NoteColorTests
 {
@@ -26,7 +26,7 @@ public class NoteColorTests
     public void EveryColourKey_ExistsInEnglish()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);
-        while (d != null && !File.Exists(Path.Combine(d.FullName, "Jemur.sln"))) d = d.Parent;
+        while (d != null && !File.Exists(Path.Combine(d.FullName, "Clothesline.sln"))) d = d.Parent;
         using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(d!.FullName, "locales", "en.json")));
         foreach (var k in NoteColors.Keys) Assert.True(doc.RootElement.TryGetProperty(k, out _), k);
     }

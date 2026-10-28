@@ -5,12 +5,12 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using Jemur.App;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
+using Clothesline.App;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// One card pinned to the desktop: a small transparent, topmost, no-activate window that holds a <see cref="CardView"/>.
@@ -23,7 +23,7 @@ internal sealed class PinWindow : Window
     private const double PadTop = 28, PadBottom = 14, DragThreshold = 5, LiftBy = 24, MaxSwing = 38;
     private const int HoldMs = 500, LiftMs = 220, GlideMs = 340;
 
-    private readonly JemurApp _app;
+    private readonly ClotheslineApp _app;
     private readonly Grid _root = new();
     private double _padX;
     private readonly ResizeGrip _grip = new();
@@ -59,7 +59,7 @@ internal sealed class PinWindow : Window
     public CardView Card { get; }
     public HangItem Item => Card.Item;
 
-    public PinWindow(JemurApp app, HangItem item)
+    public PinWindow(ClotheslineApp app, HangItem item)
     {
         _app = app;
         Card = new CardView(item, desktop: true) { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };

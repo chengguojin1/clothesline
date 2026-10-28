@@ -4,10 +4,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using Jemur.Core;
-using Jemur.UI;
+using Clothesline.Core;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// Groups on the line: where grouped cards hang (side by side, or folded into a stack), their name labels,

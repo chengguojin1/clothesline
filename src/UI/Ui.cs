@@ -3,9 +3,9 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using Jemur.Core;
+using Clothesline.Core;
 
-namespace Jemur.UI;
+namespace Clothesline.UI;
 
 /// <summary>Small factory for building Fluent UI in code. Brushes are bound by resource key so they follow theme changes.</summary>
 internal static class Ui

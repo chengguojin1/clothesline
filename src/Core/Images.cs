@@ -1,14 +1,14 @@
 using System.IO;
 using System.Windows.Media.Imaging;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 internal static class Images
 {
     public static string NewShotPath()
     {
         Directory.CreateDirectory(AppPaths.Shots);
-        var name = $"Jemur {DateTime.Now:yyyy-MM-dd HH.mm.ss}";
+        var name = $"Clothesline {DateTime.Now:yyyy-MM-dd HH.mm.ss}";
         var p = Path.Combine(AppPaths.Shots, name + ".png");
         for (int i = 2; File.Exists(p); i++) p = Path.Combine(AppPaths.Shots, $"{name} ({i}).png");
         return p;

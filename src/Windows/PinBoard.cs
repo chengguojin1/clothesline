@@ -1,15 +1,15 @@
 using System.Windows;
-using Jemur.App;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
+using Clothesline.App;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>In desktop mode, owns a <see cref="PinWindow"/> for every card of the active rope and follows the library, lift, rope switches and captures.</summary>
 internal sealed class PinBoard
 {
-    private readonly JemurApp _app;
+    private readonly ClotheslineApp _app;
     private readonly List<PinWindow> _windows = new();
     private readonly List<PinWindow> _hiddenForCapture = new();
     private string _ropeId;
@@ -24,7 +24,7 @@ internal sealed class PinBoard
     private Point _carrierFrom;
     private PinWindow? _target;
 
-    public PinBoard(JemurApp app)
+    public PinBoard(ClotheslineApp app)
     {
         _app = app;
         _ropeId = app.ActiveRope;

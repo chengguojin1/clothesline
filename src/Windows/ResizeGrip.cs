@@ -2,10 +2,10 @@ using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using Jemur.Core;
-using Jemur.UI;
+using Clothesline.Core;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// The 14 x 14 DIP corner handle of a desktop card. It is a <see cref="Thumb"/> so Narrator announces it as a draggable control;

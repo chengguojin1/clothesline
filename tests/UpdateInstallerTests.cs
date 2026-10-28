@@ -3,11 +3,11 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Windows.Threading;
-using Jemur.App;
-using Jemur.Core;
+using Clothesline.App;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 /// <summary>Staging against a fake server and a throwaway updates folder. Nothing here ever runs or swaps an EXE.</summary>
 public sealed class UpdateInstallerTests : IDisposable
@@ -63,7 +63,7 @@ public sealed class UpdateInstallerTests : IDisposable
         Assert.Equal("0.4.0", installer.ReadyVersion);
         Assert.True(changes >= 2); // Downloading, then Ready
         var staged = Assert.Single(Directory.GetFiles(_folder));
-        Assert.Equal("Jemur.exe", Path.GetFileName(staged));
+        Assert.Equal("Clothesline.exe", Path.GetFileName(staged));
         Assert.Equal(_payload, File.ReadAllBytes(staged));
     }
 
@@ -71,7 +71,7 @@ public sealed class UpdateInstallerTests : IDisposable
     public async Task StageAsync_NameWithFolders_IsRefused()
     {
         using var installer = New(_payload);
-        var m = Manifest(Convert.ToHexString(SHA256.HashData(_payload)), name: @"..\Jemur.exe");
+        var m = Manifest(Convert.ToHexString(SHA256.HashData(_payload)), name: @"..\Clothesline.exe");
 
         Assert.False(await installer.StageAsync(m, CancellationToken.None));
         Assert.False(Directory.Exists(_folder));
@@ -119,10 +119,10 @@ public sealed class UpdateInstallerTests : IDisposable
 
     private UpdateInstaller New(byte[] body) => new(new HttpClient(new FakeHandler(body)), _folder, ManifestUri, installed: false, host: null);
 
-    private UpdateManifest Manifest(string sha256, string name = "Jemur.exe")
+    private UpdateManifest Manifest(string sha256, string name = "Clothesline.exe")
     {
         var files = new[] { "x64", "arm64" }
-            .Select(a => new UpdateFile(name, "portable", a, _payload.Length, sha256, new Uri("https://downloads.example.test/" + a + "/Jemur.exe")))
+            .Select(a => new UpdateFile(name, "portable", a, _payload.Length, sha256, new Uri("https://downloads.example.test/" + a + "/Clothesline.exe")))
             .ToList();
         return new UpdateManifest("0.4.0", new string('a', 40), new Uri("https://github.com/revanapriyandi/jemur/releases/tag/v0.4.0"), files);
     }

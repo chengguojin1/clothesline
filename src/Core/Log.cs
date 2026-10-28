@@ -1,9 +1,9 @@
 using System.IO;
 using System.Text;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
-/// <summary>Tiny append-only log in %LOCALAPPDATA%\Jemur\logs. Keeps the last 7 days.</summary>
+/// <summary>Tiny append-only log in %LOCALAPPDATA%\Clothesline\logs. Keeps the last 7 days.</summary>
 internal static class Log
 {
     private static readonly object Gate = new();
@@ -25,7 +25,7 @@ internal static class Log
                 sb.Append(DateTime.Now.ToString("HH:mm:ss.fff")).Append(' ').Append(level).Append(' ').Append(message);
                 if (ex != null) sb.AppendLine().Append(ex);
                 sb.AppendLine();
-                File.AppendAllText(Path.Combine(AppPaths.Logs, $"jemur-{DateTime.Now:yyyyMMdd}.log"), sb.ToString());
+                File.AppendAllText(Path.Combine(AppPaths.Logs, $"clothesline-{DateTime.Now:yyyyMMdd}.log"), sb.ToString());
             }
         }
         catch { /* logging must never take the app down */ }
@@ -34,7 +34,7 @@ internal static class Log
     private static void Prune()
     {
         _pruned = true;
-        foreach (var f in Directory.EnumerateFiles(AppPaths.Logs, "jemur-*.log"))
+        foreach (var f in Directory.EnumerateFiles(AppPaths.Logs, "clothesline-*.log"))
             if (File.GetLastWriteTime(f) < DateTime.Now.AddDays(-7))
                 try { File.Delete(f); } catch { }
     }

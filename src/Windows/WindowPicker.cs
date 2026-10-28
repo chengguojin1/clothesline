@@ -4,11 +4,11 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// Full-screen picker: mouse moves over a top-level window, it highlights with a white border;

@@ -6,19 +6,19 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using Jemur.App;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
+using Clothesline.App;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>The control panel: what's on the line, what was discarded, settings and about.</summary>
 internal sealed class ControlPanel : Window
 {
     private enum Page { Line, Discarded, Settings, About }
 
-    private readonly JemurApp _app;
+    private readonly ClotheslineApp _app;
     private readonly ContentControl _host = new();
     private readonly Dictionary<Page, RadioButton> _nav = new();
     private readonly StackPanel _navPanel = new();
@@ -31,10 +31,10 @@ internal sealed class ControlPanel : Window
     private CancellationTokenSource? _updateRequest;
     private System.Windows.Threading.DispatcherTimer? _searchDelay;
 
-    public ControlPanel(JemurApp app)
+    public ControlPanel(ClotheslineApp app)
     {
         _app = app;
-        Title = "Jemur";
+        Title = "Clothesline";
         Width = 1040; Height = 700; MinWidth = 720; MinHeight = 480;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         FontFamily = Theme.Font;
@@ -139,7 +139,7 @@ internal sealed class ControlPanel : Window
         var pane = new DockPanel { Width = 240, Margin = new Thickness(8, 8, 0, 8) };
         var brand = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12, 6, 0, 18) };
         brand.Children.Add(new Image { Source = new BitmapImage(new Uri("pack://application:,,,/Assets/logo-256.png")) { DecodePixelWidth = 48 }, Width = 22, Height = 22, Margin = new Thickness(0, 0, 10, 0) });
-        brand.Children.Add(Ui.Text("Jemur", Ui.Type.BodyStrong));
+        brand.Children.Add(Ui.Text("Clothesline", Ui.Type.BodyStrong));
         DockPanel.SetDock(brand, Dock.Top);
         pane.Children.Add(brand);
         DockPanel.SetDock(_navPanel, Dock.Top);
@@ -551,8 +551,8 @@ internal sealed class ControlPanel : Window
         var logo = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/Assets/logo-256.png")) { DecodePixelWidth = 128 }, Width = 64, Height = 64, Margin = new Thickness(0, 0, 18, 0) };
         head.Children.Add(logo);
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(Ui.Text("Jemur", Ui.Type.Subtitle));
-        text.Children.Add(Ui.Text(L.F("about.version", JemurApp.Version), Ui.Type.Body, "J.TextSecondary"));
+        text.Children.Add(Ui.Text("Clothesline", Ui.Type.Subtitle));
+        text.Children.Add(Ui.Text(L.F("about.version", ClotheslineApp.Version), Ui.Type.Body, "J.TextSecondary"));
         head.Children.Add(text);
         list.Children.Add(Ui.Card(head, new Thickness(20)));
 
@@ -580,7 +580,7 @@ internal sealed class ControlPanel : Window
             ? (installer!.State == UpdateState.Ready ? L.F("about.readyToInstall", installer.ReadyVersion ?? "") : L.F("about.downloading", installer.DownloadingVersion ?? ""))
             : _updateResult?.Kind switch
             {
-                UpdateCheckKind.UpToDate => L.F("about.upToDate", JemurApp.Version),
+                UpdateCheckKind.UpToDate => L.F("about.upToDate", ClotheslineApp.Version),
                 UpdateCheckKind.UpdateAvailable when _updateResult.Manifest is { } available => L.F("about.updateAvailable", available.Version),
                 UpdateCheckKind.Failed => L.F("about.updateFailed", _updateResult.Error ?? ""),
                 _ when installer?.ReadyManifest is { } staged => L.F("about.updateAvailable", staged.Version),
@@ -594,8 +594,8 @@ internal sealed class ControlPanel : Window
         list.Children.Add(tagline);
 
         list.Children.Add(Ui.GroupHeader(L.T("about.links")));
-        list.Children.Add(Ui.SettingsCard("", L.T("about.source"), JemurApp.RepoUrl, Ui.Button(L.T("action.open"), () => Open(JemurApp.RepoUrl), Ui.Kind.Standard, "")));
-        list.Children.Add(Ui.SettingsCard("", L.T("about.issue"), L.T("about.issueDesc"), Ui.Button(L.T("action.open"), () => Open(JemurApp.RepoUrl + "/issues/new/choose"), Ui.Kind.Standard, "")));
+        list.Children.Add(Ui.SettingsCard("", L.T("about.source"), ClotheslineApp.RepoUrl, Ui.Button(L.T("action.open"), () => Open(ClotheslineApp.RepoUrl), Ui.Kind.Standard, "")));
+        list.Children.Add(Ui.SettingsCard("", L.T("about.issue"), L.T("about.issueDesc"), Ui.Button(L.T("action.open"), () => Open(ClotheslineApp.RepoUrl + "/issues/new/choose"), Ui.Kind.Standard, "")));
         list.Children.Add(Ui.SettingsCard("", L.T("about.translate"), L.T("about.translateDesc"), Ui.Button(L.T("action.openFolder"), () => { System.IO.Directory.CreateDirectory(AppPaths.UserLocales); Open(AppPaths.UserLocales); })));
 
         list.Children.Add(Ui.GroupHeader(L.T("about.credits")));

@@ -1,14 +1,14 @@
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using Jemur.Interop;
+using Clothesline.Interop;
 using Microsoft.Win32;
 
-namespace Jemur.UI;
+namespace Clothesline.UI;
 
 /// <summary>
 /// Windows 11 design tokens for light and dark mode, plus the user's accent colour.
-/// Values follow the WinUI 3 theme resources so Jemur sits naturally next to built-in apps.
+/// Values follow the WinUI 3 theme resources so Clothesline sits naturally next to built-in apps.
 /// </summary>
 internal static class Theme
 {
@@ -68,7 +68,7 @@ internal static class Theme
         _mode = mode;
         Apply();
         // Follow system theme / accent changes live.
-        _watcher = new HwndSource(new HwndSourceParameters("JemurTheme") { Width = 0, Height = 0, WindowStyle = 0 });
+        _watcher = new HwndSource(new HwndSourceParameters("ClotheslineTheme") { Width = 0, Height = 0, WindowStyle = 0 });
         _watcher.AddHook((IntPtr h, int msg, IntPtr w, IntPtr l, ref bool handled) =>
         {
             if (msg == Native.WM_SETTINGCHANGE || msg == 0x0320 /* WM_DWMCOLORIZATIONCOLORCHANGED */)

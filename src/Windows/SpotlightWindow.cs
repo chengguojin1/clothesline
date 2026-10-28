@@ -5,12 +5,12 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
-using Jemur.App;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
+using Clothesline.App;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// Takes an item off the line into the middle of the screen: a large sheet of paper to write on, or a
@@ -19,7 +19,7 @@ namespace Jemur.Windows;
 internal sealed class SpotlightWindow : Window
 {
     private readonly HangItem _item;
-    private readonly JemurApp _app;
+    private readonly ClotheslineApp _app;
     private readonly Point _origin;
     private readonly Border _dim;
     private readonly Grid _stage;
@@ -45,7 +45,7 @@ internal sealed class SpotlightWindow : Window
 
     public event Action<HangItem>? Finished;
 
-    public SpotlightWindow(HangItem item, JemurApp app, Point origin)
+    public SpotlightWindow(HangItem item, ClotheslineApp app, Point origin)
     {
         _item = item;
         _app = app;

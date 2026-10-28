@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 /// <summary>Guards for translators: every language has every key, and every key the code asks for exists.</summary>
 public class LocalizationTests
@@ -13,7 +13,7 @@ public class LocalizationTests
     private static string FindRepo()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);
-        while (d != null && !File.Exists(Path.Combine(d.FullName, "Jemur.sln"))) d = d.Parent;
+        while (d != null && !File.Exists(Path.Combine(d.FullName, "Clothesline.sln"))) d = d.Parent;
         return d?.FullName ?? throw new InvalidOperationException("Repository root not found");
     }
 
@@ -69,7 +69,7 @@ public class LocalizationTests
             foreach (Match m in Regex.Matches(code, @"""((?:spotlight|action|color|shortcut)\.\w+)"""))
                 used.Add(m.Groups[1].Value);
         }
-        foreach (var a in Jemur.Core.Actions.All) used.Add("shortcut." + a);
+        foreach (var a in Clothesline.Core.Actions.All) used.Add("shortcut." + a);
         var missing = used.Where(k => !en.ContainsKey(k)).OrderBy(k => k).ToList();
         Assert.True(missing.Count == 0, "Missing in en.json: " + string.Join(", ", missing));
     }

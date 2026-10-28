@@ -8,24 +8,24 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
-using Jemur.Windows;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
+using Clothesline.Windows;
 using Microsoft.Win32;
 
-namespace Jemur.App;
+namespace Clothesline.App;
 
 /// <summary>Owns the long-lived pieces (library, line, tray, shortcuts) and every user-facing action.</summary>
-internal sealed class JemurApp
+internal sealed class ClotheslineApp
 {
-    public const string RepoUrl = "https://github.com/revanapriyandi/jemur";
-    public const string ManifestUrl = "https://jemur-downloads.syeana-co.workers.dev/manifest.json";
+    public const string RepoUrl = "https://github.com/chengguojin1/clothesline";
+    public const string ManifestUrl = "https://github.com/chengguojin1/clothesline/releases/latest/download/manifest.json";
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private static readonly double[] CardScales = { 0.85, 1.0, 1.22 };
 
     public static string Version { get; } =
-        typeof(JemurApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
+        typeof(ClotheslineApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
 
     private readonly Application _wpf;
     private readonly bool _background;
@@ -50,7 +50,7 @@ internal sealed class JemurApp
     public bool HasOverlay => _spotlight != null || _markup != null || _capturing;
     internal IUpdateChecker UpdateChecker { get; private set; } = null!;
 
-    public JemurApp(Application wpf, bool background, string? renderDocs = null, string? updated = null)
+    public ClotheslineApp(Application wpf, bool background, string? renderDocs = null, string? updated = null)
     {
         _wpf = wpf;
         _background = background;
@@ -63,7 +63,7 @@ internal sealed class JemurApp
     private readonly string? _updated;
 
     /// <summary>
-    /// Developer tool: <c>Jemur.exe --render-docs &lt;folder&gt;</c> renders the control panel in dark and light
+    /// Developer tool: <c>Clothesline.exe --render-docs &lt;folder&gt;</c> renders the control panel in dark and light
     /// theme straight to PNG, without touching the screen. Combine with JEMUR_DATA to use demo content.
     /// </summary>
     private void RenderDocs(string dir)
@@ -100,7 +100,7 @@ internal sealed class JemurApp
     public void Start()
     {
         AppPaths.Ensure();
-        Log.Info($"Jemur {Version} starting on Windows {Environment.OSVersion.Version}");
+        Log.Info($"Clothesline {Version} starting on Windows {Environment.OSVersion.Version}");
         Settings = SettingsStore.Load();
         L.Init(Settings.Language);
         if (_renderDocs != null)
@@ -141,7 +141,7 @@ internal sealed class JemurApp
 
         _hotkeys = new HotkeyManager();
         var failed = BindHotkeys();
-        if (failed.Count > 0) _tray.Notify("Jemur", L.F("tray.shortcutsTaken", string.Join(", ", failed)), warning: true);
+        if (failed.Count > 0) _tray.Notify("Clothesline", L.F("tray.shortcutsTaken", string.Join(", ", failed)), warning: true);
 
         ListenForSecondInstance();
 
@@ -151,7 +151,7 @@ internal sealed class JemurApp
             SettingsStore.Save(Settings);
             ShowPanel();
         }
-        else if (!_background && Library.Items.Count == 0) _tray.Notify("Jemur", L.F("tray.running", HotkeyText(Actions.Screenshot)));
+        else if (!_background && Library.Items.Count == 0) _tray.Notify("Clothesline", L.F("tray.running", HotkeyText(Actions.Screenshot)));
 
         Memory.TrimSoon(4000);
         Memory.Report("started");
@@ -173,7 +173,7 @@ internal sealed class JemurApp
         _linkHttp?.Dispose();
         _hotkeys?.Dispose();
         _tray?.Dispose();
-        Log.Info("Jemur stopped");
+        Log.Info("Clothesline stopped");
     }
 
     /// <summary>Quitting with an update staged installs it on the way out.</summary>
@@ -189,14 +189,14 @@ internal sealed class JemurApp
     private void StartInstaller()
     {
         var outcome = UpdateInstaller.UpdatedOutcome(_updated, Version);
-        if (outcome == UpdateOutcome.Done) _tray.Notify("Jemur", L.F("update.done", Version));
+        if (outcome == UpdateOutcome.Done) _tray.Notify("Clothesline", L.F("update.done", Version));
         else if (outcome == UpdateOutcome.Failed)
         {
-            // The installer ran but this is still the old Jemur: never try that version again by itself.
+            // The installer ran but this is still the old Clothesline: never try that version again by itself.
             Log.Warn($"Restarted for {_updated} but still running {Version}");
             Settings.SkipAutoUpdateVersion = _updated!;
             SettingsStore.Save(Settings);
-            _tray.Notify("Jemur", L.T("update.failed"), warning: true);
+            _tray.Notify("Clothesline", L.T("update.failed"), warning: true);
         }
 
         bool installed = UpdateInstaller.IsInstalled();
@@ -360,7 +360,7 @@ internal sealed class JemurApp
         Pins.ShowRope(ropeId, animate: true);
         EnsureVisible();
         _tray?.SetTip(TrayTip());
-        if (InDesktopMode) _tray?.Notify("Jemur", L.F("mode.lineSwitched", RopeName(ropeId))); // no rope tag shows it
+        if (InDesktopMode) _tray?.Notify("Clothesline", L.F("mode.lineSwitched", RopeName(ropeId))); // no rope tag shows it
         RopeSwitched?.Invoke();
     }
 
@@ -439,7 +439,7 @@ internal sealed class JemurApp
     private void ListenForSecondInstance()
     {
         var ev = new EventWaitHandle(false, EventResetMode.AutoReset, Program.ShowPanelEvent);
-        new Thread(() => { while (true) { ev.WaitOne(); _wpf.Dispatcher.BeginInvoke(() => ShowPanel()); } }) { IsBackground = true, Name = "Jemur.Activation" }.Start();
+        new Thread(() => { while (true) { ev.WaitOne(); _wpf.Dispatcher.BeginInvoke(() => ShowPanel()); } }) { IsBackground = true, Name = "Clothesline.Activation" }.Start();
     }
 
     // ───────────── shortcuts ─────────────
@@ -505,7 +505,7 @@ internal sealed class JemurApp
         SettingsStore.Save(Settings);
         foreach (var a in Actions.All) _hotkeys.Unbind(a);
         var failed = BindHotkeys();
-        if (failed.Count > 0) _tray.Notify("Jemur", L.F("tray.shortcutsTaken", string.Join(", ", failed)), warning: true);
+        if (failed.Count > 0) _tray.Notify("Clothesline", L.F("tray.shortcutsTaken", string.Join(", ", failed)), warning: true);
     }
 
     // ───────────── settings ─────────────
@@ -545,7 +545,7 @@ internal sealed class JemurApp
     public bool IsStartupEnabled()
     {
         using var k = Registry.CurrentUser.OpenSubKey(RunKey);
-        return k?.GetValue("Jemur") != null;
+        return k?.GetValue("Clothesline") != null;
     }
 
     public void SetStartup(bool on)
@@ -553,8 +553,8 @@ internal sealed class JemurApp
         try
         {
             using var k = Registry.CurrentUser.CreateSubKey(RunKey);
-            if (on) k.SetValue("Jemur", $"\"{Environment.ProcessPath}\" --background");
-            else k.DeleteValue("Jemur", false);
+            if (on) k.SetValue("Clothesline", $"\"{Environment.ProcessPath}\" --background");
+            else k.DeleteValue("Clothesline", false);
         }
         catch (Exception ex) { Log.Error("Could not change startup setting", ex); }
     }
@@ -594,14 +594,14 @@ internal sealed class JemurApp
         catch (Exception ex)
         {
             Log.Error("Screenshot failed", ex);
-            _tray.Notify("Jemur", L.F("error.screenshot", ex.Message), warning: true);
+            _tray.Notify("Clothesline", L.F("error.screenshot", ex.Message), warning: true);
         }
         finally
         {
             _capturing = false;
             Pins.RestoreAfterCapture(); // also when the capture threw before the pins came back
             if (panelVisible) _panel?.Show();
-            Memory.TrimSoon(); // the full-screen bitmap is the biggest allocation Jemur ever makes
+            Memory.TrimSoon(); // the full-screen bitmap is the biggest allocation Clothesline ever makes
         }
     }
 
@@ -638,7 +638,7 @@ internal sealed class JemurApp
         catch (Exception ex)
         {
             Log.Error("TakeWindow failed", ex);
-            _tray.Notify("Jemur", ex.Message, warning: true);
+            _tray.Notify("Clothesline", ex.Message, warning: true);
         }
         finally
         {
@@ -694,12 +694,12 @@ internal sealed class JemurApp
                 Hang(new HangItem { Kind = ItemKind.Note, Text = text, Color = Random.Shared.Next(NoteColors.Count) });
                 return;
             }
-            _tray.Notify("Jemur", L.T("tray.clipboardEmpty"));
+            _tray.Notify("Clothesline", L.T("tray.clipboardEmpty"));
         }
         catch (Exception ex)
         {
             Log.Warn("Reading the clipboard failed", ex);
-            _tray.Notify("Jemur", L.T("tray.clipboardFailed"), warning: true);
+            _tray.Notify("Clothesline", L.T("tray.clipboardFailed"), warning: true);
         }
         finally { Memory.TrimSoon(); }
     }
@@ -752,7 +752,7 @@ internal sealed class JemurApp
             if (_linkHttp == null)
             {
                 _linkHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-                _linkHttp.DefaultRequestHeaders.UserAgent.ParseAdd($"Mozilla/5.0 (compatible; Jemur/{Version}; link preview)");
+                _linkHttp.DefaultRequestHeaders.UserAgent.ParseAdd($"Mozilla/5.0 (compatible; Clothesline/{Version}; link preview)");
             }
             var card = await LinkPreview.FetchAsync(_linkHttp, url, cts.Token);
             if (cts.IsCancellationRequested || !Library.Items.Contains(item) || LinkPreview.FindUrl(item.Text) != url)

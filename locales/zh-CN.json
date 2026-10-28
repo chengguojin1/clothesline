@@ -214,7 +214,7 @@
   "about.translate": "翻译目录",
   "about.translateDesc": "从仓库复制 en.json，翻译后按你的语言代码命名（例如 de.json）保存到这里，然后重启 Clothesline。",
   "about.credits": "致谢",
-  "about.creditsText": "灵感来自 macOS 应用 Tendedero（作者 @alejandr0bujan）。Clothesline 是独立的 Windows 实现，未复用其代码。",
+  "about.creditsText": "本项目 Fork 自 Revan Apriyandi 的 Jemur（github.com/revanapriyandi/jemur），原项目灵感来自 macOS 应用 Tendedero（作者 @alejandr0bujan）。Clothesline 在此基础上新增了活动窗口挂绳功能与简体中文支持。原项目均为 MIT 协议开源。",
   "about.license": "基于 MIT 许可证发布。使用 .NET 和 WPF 构建。",
 
   "time.now": "刚刚",

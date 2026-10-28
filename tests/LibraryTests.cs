@@ -1,8 +1,8 @@
 using System.IO;
-using Jemur.Core;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 /// <summary>Library behaviour against a throwaway data folder.</summary>
 [Collection("AppPaths")]

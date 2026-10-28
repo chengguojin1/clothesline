@@ -4,13 +4,13 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <AssemblyName>Jemur</AssemblyName>
-    <RootNamespace>Jemur</RootNamespace>
+    <AssemblyName>Clothesline</AssemblyName>
+    <RootNamespace>Clothesline</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\jemur.ico</ApplicationIcon>
-    <Version>0.4.0</Version>
-    <Product>Jemur</Product>
-    <Description>Hang screenshots and notes on a clothesline across the top of your screen.</Description>
+    <Version>0.5.0</Version>
+    <Product>Clothesline</Product>
+    <Description>Hang screenshots, notes and live windows on a clothesline across the top of your screen.</Description>
     <!-- Only ship English framework resources; our own UI strings live in /locales. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -41,7 +41,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Jemur.Tests" />
+    <InternalsVisibleTo Include="Clothesline.Tests" />
   </ItemGroup>
 
 </Project>

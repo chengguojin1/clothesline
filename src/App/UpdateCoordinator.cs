@@ -1,6 +1,6 @@
-using Jemur.Core;
+using Clothesline.Core;
 
-namespace Jemur.App;
+namespace Clothesline.App;
 
 internal sealed class UpdateCoordinator : IDisposable
 {
@@ -91,11 +91,11 @@ internal sealed class UpdateCoordinator : IDisposable
         return result;
     }
 
-    /// <summary>The 0.3.0 behaviour: one "open Jemur to download it" notification per version.</summary>
+    /// <summary>The 0.3.0 behaviour: one "open Clothesline to download it" notification per version.</summary>
     public void NotifyAvailable(UpdateManifest manifest)
     {
         lock (_notifiedVersions) { if (!_notifiedVersions.Add(manifest.Version)) return; }
-        _notify("Jemur", $"Jemur {manifest.Version} is available. Open Jemur to download it.", false);
+        _notify("Clothesline", $"Clothesline {manifest.Version} is available. Open Clothesline to download it.", false);
     }
 
     public void Dispose()

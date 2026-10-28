@@ -5,13 +5,13 @@ using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using Jemur.Core;
-using Jemur.UI;
-using Jemur.Windows;
+using Clothesline.Core;
+using Clothesline.UI;
+using Clothesline.Windows;
 using System.Windows.Automation.Provider;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 [Collection("AppPaths")]
 public sealed class AccessibilityTests

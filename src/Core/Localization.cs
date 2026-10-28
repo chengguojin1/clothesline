@@ -3,12 +3,12 @@ using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 /// <summary>
 /// UI strings. Each language is a flat JSON file in /locales (e.g. <c>en.json</c>, <c>id.json</c>).
 /// Files are embedded in the build, and extra or overriding files are picked up at runtime from
-/// <c>%APPDATA%\Jemur\locales</c> and a <c>locales</c> folder next to Jemur.exe — so a new language can be
+/// <c>%APPDATA%\Clothesline\locales</c> and a <c>locales</c> folder next to Clothesline.exe — so a new language can be
 /// tried without rebuilding. Missing keys fall back to English, then to the key itself.
 /// </summary>
 internal static class L

@@ -1,7 +1,7 @@
 using System.Runtime;
 using System.Windows.Threading;
 
-namespace Jemur.Interop;
+namespace Clothesline.Interop;
 
 /// <summary>
 /// Gives memory back after something big (a full-screen capture, the control panel) goes away.

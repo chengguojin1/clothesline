@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Media.Imaging;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 /// <summary>Finds a web address in a note and reads the page's own preview (Open Graph tags, else its title).</summary>
 internal static partial class LinkPreview

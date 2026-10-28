@@ -1,10 +1,10 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using Jemur.Core;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 public sealed class UpdateCheckerTests
 {
@@ -66,11 +66,11 @@ public sealed class UpdateCheckerTests
     public async Task Parse_ManifestFiles()
     {
         var sha = new string('b', 64);
-        var json = "{\"version\":\"0.4.0\",\"commit\":\"0123456789012345678901234567890123456789\",\"files\":[{\"name\":\"Jemur-0.4.0-win-x64.exe\",\"variant\":\"x\",\"kind\":\"portable\",\"architecture\":\"x64\",\"runtimeIncluded\":true,\"size\":5000000,\"sha256\":\"" + sha + "\",\"url\":\"https://updates.example.test/Jemur-0.4.0-win-x64.exe\"}]}";
+        var json = "{\"version\":\"0.4.0\",\"commit\":\"0123456789012345678901234567890123456789\",\"files\":[{\"name\":\"Clothesline-0.4.0-win-x64.exe\",\"variant\":\"x\",\"kind\":\"portable\",\"architecture\":\"x64\",\"runtimeIncluded\":true,\"size\":5000000,\"sha256\":\"" + sha + "\",\"url\":\"https://updates.example.test/Clothesline-0.4.0-win-x64.exe\"}]}";
         var checker = new UpdateChecker(new HttpClient(new Handler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") })), "0.1.3", ManifestUri, RepoUrl);
         var result = await checker.CheckAsync(CancellationToken.None);
         var f = Assert.Single(result.Manifest!.Files);
-        Assert.Equal(new UpdateFile("Jemur-0.4.0-win-x64.exe", "portable", "x64", 5000000, sha, new Uri("https://updates.example.test/Jemur-0.4.0-win-x64.exe")), f);
+        Assert.Equal(new UpdateFile("Clothesline-0.4.0-win-x64.exe", "portable", "x64", 5000000, sha, new Uri("https://updates.example.test/Clothesline-0.4.0-win-x64.exe")), f);
         var none = await CreateChecker("0.4.0").CheckAsync(CancellationToken.None);
         Assert.Empty(none.Manifest!.Files);
     }

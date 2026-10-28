@@ -3,9 +3,9 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 
-namespace Jemur.Interop;
+namespace Clothesline.Interop;
 
-/// <summary>Win32 entry points. Kept in one file so it's obvious what Jemur asks of the OS.</summary>
+/// <summary>Win32 entry points. Kept in one file so it's obvious what Clothesline asks of the OS.</summary>
 internal static partial class Native
 {
     // ───────────── structs ─────────────
@@ -162,7 +162,7 @@ internal static partial class Native
     }
 
     /// <summary>
-    /// Brings a window to the front even when Jemur isn't the active app (e.g. after a global shortcut).
+    /// Brings a window to the front even when Clothesline isn't the active app (e.g. after a global shortcut).
     /// Windows normally refuses this; attaching to the foreground thread's input queue is the documented workaround.
     /// </summary>
     public static void ForceForeground(Window w)

@@ -3,11 +3,11 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using Jemur.Core;
-using Jemur.UI;
+using Clothesline.Core;
+using Clothesline.UI;
 using Path = System.Windows.Shapes.Path;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// One thing on the line: a polaroid screenshot or a paper note, held by a clothespin.

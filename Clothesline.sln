@@ -5,11 +5,11 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jemur", "src\Jemur.csproj", "{CA3C4B3E-8651-4DEB-A48F-01A0396865CE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clothesline", "src\Clothesline.csproj", "{CA3C4B3E-8651-4DEB-A48F-01A0396865CE}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jemur.Tests", "tests\Jemur.Tests.csproj", "{5131C500-0F6D-415A-BB18-AED5163473A5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clothesline.Tests", "tests\Clothesline.Tests.csproj", "{5131C500-0F6D-415A-BB18-AED5163473A5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

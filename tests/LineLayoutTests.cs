@@ -1,8 +1,8 @@
 using System.Windows;
-using Jemur.Core;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 public sealed class LineLayoutTests
 {

@@ -1,8 +1,8 @@
 using System.IO;
-using Jemur.Core;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 /// <summary>Desktop pins and card groups in the Library.</summary>
 [Collection("AppPaths")]
@@ -39,7 +39,7 @@ public sealed class LibraryGroupPinTests : IDisposable
     public void Load_SurvivesNullAndDuplicateGroups()
     {
         File.WriteAllText(AppPaths.ItemsFile, """
-            {"Version":2,"Ropes":[{"Id":"default","Name":"Jemuran"}],
+            {"Version":2,"Ropes":[{"Id":"default","Name":"Clotheslinean"}],
              "Groups":[null,{"Id":null,"ItemIds":["n1"]},{"Id":"g","Name":null,"ItemIds":["n1",null]},{"Id":"g","ItemIds":["n2"]}],
              "Items":[{"Id":"n1","Kind":"Note","Text":"a"},{"Id":"n2","Kind":"Note","Text":"b"}],"Discarded":[]}
             """);

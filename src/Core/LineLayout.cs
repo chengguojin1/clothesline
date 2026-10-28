@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 /// <summary>Pure geometry for card groups and desktop pins, kept free of windows so it can be tested.</summary>
 internal static class LineLayout

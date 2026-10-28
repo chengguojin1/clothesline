@@ -5,10 +5,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using Jemur.Core;
-using Jemur.UI;
+using Clothesline.Core;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// The fabric name tag tied to the left end of the rope. Drawn like the clothespin and paper:

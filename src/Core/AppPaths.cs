@@ -1,15 +1,15 @@
 using System.IO;
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
-/// <summary>Every location Jemur reads from or writes to, in one place.</summary>
+/// <summary>Every location Clothesline reads from or writes to, in one place.</summary>
 internal static class AppPaths
 {
-    public static string Data { get; private set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Jemur");
+    public static string Data { get; private set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clothesline");
     public static string Shots => Path.Combine(Data, "shots");
     public static string UserLocales => Path.Combine(Data, "locales");
     public static string ItemsFile => Path.Combine(Data, "items.json");
     public static string SettingsFile => Path.Combine(Data, "settings.json");
-    public static string Logs { get; private set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Jemur", "logs");
+    public static string Logs { get; private set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clothesline", "logs");
 
     /// <summary>Points all storage at another folder (used by tests so they never touch real user data).</summary>
     internal static void OverrideRoot(string root)
@@ -17,21 +17,21 @@ internal static class AppPaths
         Data = Path.Combine(root, "data");
         Logs = Path.Combine(root, "logs");
     }
-    public static string Temp => Path.Combine(Path.GetTempPath(), "Jemur");
+    public static string Temp => Path.Combine(Path.GetTempPath(), "Clothesline");
 
-    /// <summary>Folder that used to hold data while the project was called "Jemuran".</summary>
-    private static string LegacyData => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Jemuran");
+    /// <summary>Folder used by the original Jemur build, for one-time data migration.</summary>
+    private static string LegacyData => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Jemur");
 
     public static void Ensure()
     {
-        // JEMUR_DATA points everything at a separate folder: handy for development and demos.
-        if (Environment.GetEnvironmentVariable("JEMUR_DATA") is { Length: > 0 } custom) OverrideRoot(custom);
+        // CLOTHESLINE_DATA points everything at a separate folder: handy for development and demos.
+        if (Environment.GetEnvironmentVariable("CLOTHESLINE_DATA") is { Length: > 0 } custom) OverrideRoot(custom);
         try
         {
             if (!Directory.Exists(Data) && Directory.Exists(LegacyData))
             {
                 Directory.Move(LegacyData, Data);
-                Log.Info("Migrated data folder from Jemuran to Jemur");
+                Log.Info("Migrated data folder from Jemur to Clothesline");
             }
         }
         catch (Exception ex) { Log.Error("Data migration failed", ex); }

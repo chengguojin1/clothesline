@@ -1,10 +1,10 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
-using Jemur.Core;
-using Jemur.UI;
+using Clothesline.Core;
+using Clothesline.UI;
 
-namespace Jemur.Interop;
+namespace Clothesline.Interop;
 
 /// <summary>
 /// Notification-area icon talking to Shell_NotifyIcon directly. Using WinForms' NotifyIcon would pull
@@ -44,7 +44,7 @@ internal sealed partial class TrayIcon : IDisposable
     private readonly HwndSource _src;
     private readonly uint _taskbarCreated;
     private IntPtr _icon;
-    private string _tip = "Jemur";
+    private string _tip = "Clothesline";
     private bool _added;
     private long _lastClick = long.MinValue / 2;
 
@@ -53,7 +53,7 @@ internal sealed partial class TrayIcon : IDisposable
 
     public TrayIcon()
     {
-        _src = new HwndSource(new HwndSourceParameters("JemurTray") { Width = 0, Height = 0, WindowStyle = 0 });
+        _src = new HwndSource(new HwndSourceParameters("ClotheslineTray") { Width = 0, Height = 0, WindowStyle = 0 });
         _src.AddHook(Hook);
         _taskbarCreated = Native.RegisterWindowMessage("TaskbarCreated");
     }

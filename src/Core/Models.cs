@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 public enum ItemKind { Image, Note, LiveWindow }
 

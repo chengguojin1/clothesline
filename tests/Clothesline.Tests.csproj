@@ -12,6 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="portable/**" />
-    <ProjectReference Include="..\src\Jemur.csproj" />
+    <ProjectReference Include="..\src\Clothesline.csproj" />
   </ItemGroup>
 </Project>

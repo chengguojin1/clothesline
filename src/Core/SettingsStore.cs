@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 internal static class SettingsStore
 {

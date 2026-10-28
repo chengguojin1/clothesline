@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using Jemur.Core;
+using Clothesline.Core;
 
-namespace Jemur.UI;
+namespace Clothesline.UI;
 
 /// <summary>
 /// Click, press a combination, done. Esc cancels, Backspace/Delete clears.

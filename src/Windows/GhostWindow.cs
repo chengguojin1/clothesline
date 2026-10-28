@@ -4,10 +4,10 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using Jemur.Core;
-using Jemur.Interop;
+using Clothesline.Core;
+using Clothesline.Interop;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>A click-through copy of a card that follows the cursor while dragging, falls when let go, or flies between the line and the desktop.</summary>
 internal sealed class GhostWindow : Window

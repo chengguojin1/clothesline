@@ -6,11 +6,11 @@ using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>Annotate a screenshot: pen, highlighter, box, arrow, eraser. Saves back into the same PNG.</summary>
 internal sealed class MarkupWindow : Window

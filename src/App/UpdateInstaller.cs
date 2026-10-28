@@ -4,11 +4,11 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Threading;
-using Jemur.Core;
-using Jemur.Interop;
+using Clothesline.Core;
+using Clothesline.Interop;
 using Microsoft.Win32;
 
-namespace Jemur.App;
+namespace Clothesline.App;
 
 internal enum UpdateState { Idle, Downloading, Ready, Failed }
 
@@ -26,7 +26,7 @@ internal enum DownloadResult { Ok, Failed, Mismatch }
 internal sealed record UpdateHost(Dispatcher Dispatcher, Func<string, bool> Allowed, Func<bool> Busy, Func<bool> Save, Action Exit, Action<UpdateManifest, bool> Fallback);
 
 /// <summary>
-/// Downloads a verified update to <c>%LOCALAPPDATA%\Jemur\updates</c>, then installs it at a quiet moment (or on quit):
+/// Downloads a verified update to <c>%LOCALAPPDATA%\Clothesline\updates</c>, then installs it at a quiet moment (or on quit):
 /// the installed build hands the setup to a hidden helper that waits for this process to exit; the portable build
 /// swaps its own EXE and starts the new one.
 /// </summary>
@@ -36,7 +36,7 @@ internal sealed class UpdateInstaller : IDisposable
     private static readonly TimeSpan QuietCheck = TimeSpan.FromMinutes(1);
 
     public static string DefaultFolder =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Jemur", "updates");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clothesline", "updates");
 
     public static string Architecture => RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? "arm64" : "x64";
 
@@ -71,7 +71,7 @@ internal sealed class UpdateInstaller : IDisposable
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Jemur");
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Clothesline");
             var dir = Path.GetDirectoryName(Environment.ProcessPath);
             return key?.GetValue("InstallLocation") is string { Length: > 0 } location && dir != null
                 && string.Equals(Full(location), Full(dir), StringComparison.OrdinalIgnoreCase);
@@ -129,14 +129,14 @@ internal sealed class UpdateInstaller : IDisposable
         var result = DownloadResult.Failed;
         try { result = await Task.Run(() => DownloadAsync(file, target, ct)); }
         catch (OperationCanceledException) when (_life.IsCancellationRequested) { return false; } // quitting: the app is going away
-        catch (Exception ex) { Log.Warn($"Downloading Jemur {m.Version} failed", ex); }
+        catch (Exception ex) { Log.Warn($"Downloading Clothesline {m.Version} failed", ex); }
         if (_life.IsCancellationRequested) return false;
         if (result != DownloadResult.Ok)
         {
             CleanUp(keepStaged: false);
             return Fail(m, skip: result == DownloadResult.Mismatch); // network and disk errors retry; a broken release does not
         }
-        Log.Info($"Jemur {m.Version} is downloaded and verified");
+        Log.Info($"Clothesline {m.Version} is downloaded and verified");
         // One state change sets all three, so ApplyNow never pairs a manifest with another download's file.
         SetState(UpdateState.Ready, () => { _manifest = m; _file = file; _path = target; });
         return true;
@@ -209,12 +209,12 @@ internal sealed class UpdateInstaller : IDisposable
         }
         catch (Exception ex)
         {
-            // The mutex may already be released: a second Jemur could start meanwhile, which beats losing this one.
-            Log.Error($"Installing Jemur {m.Version} failed", ex);
+            // The mutex may already be released: a second Clothesline could start meanwhile, which beats losing this one.
+            Log.Error($"Installing Clothesline {m.Version} failed", ex);
             CleanUp(keepStaged: false);
             return Fail(m, skip: true);
         }
-        Log.Info($"Handed over to Jemur {m.Version}; exiting");
+        Log.Info($"Handed over to Clothesline {m.Version}; exiting");
         _host.Exit();
         return true;
     }

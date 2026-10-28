@@ -2,9 +2,9 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
-using Jemur.Interop;
+using Clothesline.Interop;
 
-namespace Jemur.Interop;
+namespace Clothesline.Interop;
 
 /// <summary>
 /// A live DWM thumbnail of one top-level window, painted into our overlay window.

@@ -1,4 +1,4 @@
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 /// <summary>
 /// Spots a card being shaken while it is dragged: <see cref="Turns"/> quick changes of direction, each at least

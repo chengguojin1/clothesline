@@ -3,7 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 internal enum UpdateCheckKind { UpToDate, UpdateAvailable, Failed }
 

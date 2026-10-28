@@ -1,8 +1,8 @@
-using Jemur.App;
-using Jemur.Core;
+using Clothesline.App;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 public sealed class UpdateCoordinatorTests
 {

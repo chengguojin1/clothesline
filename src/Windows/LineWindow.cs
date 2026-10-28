@@ -7,13 +7,13 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using Jemur.App;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
+using Clothesline.App;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
 using Path = System.Windows.Shapes.Path;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// The clothesline: a transparent, always-on-top strip across the top of the primary screen.
@@ -27,7 +27,7 @@ internal sealed partial class LineWindow : Window
     private const double DragThreshold = 5, TagX = 14, SwitchSlide = 220;
     private const int HoldMs = 500;
 
-    private readonly JemurApp _app;
+    private readonly ClotheslineApp _app;
     private readonly Canvas _stage = new();
     private readonly Path _rope, _ropeShadow, _ropeTwist;
     private readonly List<CardView> _cards = new();
@@ -54,10 +54,10 @@ internal sealed partial class LineWindow : Window
     public bool AutoHide { get; set; } = true;
     public bool MenuOpen { get; set; }
 
-    public LineWindow(JemurApp app)
+    public LineWindow(ClotheslineApp app)
     {
         _app = app;
-        Title = "Jemur";
+        Title = "Clothesline";
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;

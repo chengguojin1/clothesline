@@ -1,8 +1,8 @@
 using System.IO;
-using Jemur.Core;
+using Clothesline.Core;
 using Xunit;
 
-namespace Jemur.Tests;
+namespace Clothesline.Tests;
 
 /// <summary>Ropes in the Library: v2 file format, migration from v1, and the rope API.</summary>
 [Collection("AppPaths")]
@@ -40,7 +40,7 @@ public sealed class LibraryRopeTests : IDisposable
         var lib = Loaded();
         var rope = Assert.Single(lib.Ropes);
         Assert.Equal("default", rope.Id);
-        Assert.Equal("Jemuran", rope.Name);
+        Assert.Equal("Clotheslinean", rope.Name);
         Assert.Equal("default", Assert.Single(lib.Items).RopeId);
     }
 
@@ -149,7 +149,7 @@ public sealed class LibraryRopeTests : IDisposable
             """);
         var lib = Loaded();
         Assert.Equal(new[] { "default", "a" }, lib.Ropes.Select(r => r.Id));
-        Assert.Equal("Jemuran", lib.RopeById("a")!.Name);
+        Assert.Equal("Clotheslinean", lib.RopeById("a")!.Name);
         Assert.Equal("a", Assert.Single(lib.Items).RopeId);
     }
 

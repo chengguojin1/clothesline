@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 
-namespace Jemur.Interop;
+namespace Clothesline.Interop;
 
 /// <summary>Screen grabbing with plain GDI (no System.Drawing).</summary>
 internal static partial class ScreenCapture

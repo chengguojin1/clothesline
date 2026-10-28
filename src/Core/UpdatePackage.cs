@@ -2,7 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 /// <summary>Pure rules for verified self-updates: what to download, whether it is intact, and how to swap it in.</summary>
 internal static class UpdatePackage

@@ -1,8 +1,8 @@
 using System.Windows.Input;
 using System.Windows.Interop;
-using Jemur.Core;
+using Clothesline.Core;
 
-namespace Jemur.Interop;
+namespace Clothesline.Interop;
 
 /// <summary>Registers system-wide shortcuts on a hidden message-only window.</summary>
 internal sealed class HotkeyManager : IDisposable
@@ -14,7 +14,7 @@ internal sealed class HotkeyManager : IDisposable
 
     public HotkeyManager()
     {
-        _src = new HwndSource(new HwndSourceParameters("JemurHotkeys") { Width = 0, Height = 0, WindowStyle = 0, ParentWindow = new IntPtr(-3) });
+        _src = new HwndSource(new HwndSourceParameters("ClotheslineHotkeys") { Width = 0, Height = 0, WindowStyle = 0, ParentWindow = new IntPtr(-3) });
         _src.AddHook(Hook);
     }
 

@@ -1,14 +1,14 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
-using Jemur.Core;
+using Clothesline.Core;
 
-namespace Jemur.App;
+namespace Clothesline.App;
 
 public static class Program
 {
-    private const string MutexName = "Jemur.SingleInstance.v1";
-    internal const string ShowPanelEvent = "Jemur.ShowPanel.v1";
+    private const string MutexName = "Clothesline.SingleInstance.v1";
+    internal const string ShowPanelEvent = "Clothesline.ShowPanel.v1";
     private static Mutex? _instance;
 
     [STAThread]
@@ -33,9 +33,9 @@ public static class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.DispatcherUnhandledException += OnDispatcherException;
         int r = Array.IndexOf(args, "--render-docs");
-        var jemur = new JemurApp(app, background: args.Contains("--background"), renderDocs: r >= 0 && r + 1 < args.Length ? args[r + 1] : null, updated: updated);
-        app.Startup += (_, _) => jemur.Start();
-        app.Exit += (_, _) => jemur.Stop();
+        var host = new ClotheslineApp(app, background: args.Contains("--background"), renderDocs: r >= 0 && r + 1 < args.Length ? args[r + 1] : null, updated: updated);
+        app.Startup += (_, _) => host.Start();
+        app.Exit += (_, _) => host.Stop();
         return app.Run();
     }
 
@@ -52,7 +52,7 @@ public static class Program
 
     /// <summary>
     /// After an update the old copy is still shutting down when the new one starts; it holds the shortcuts and may be
-    /// writing items.json. Give copies of Jemur in this session up to 10 seconds to exit.
+    /// writing items.json. Give copies of Clothesline in this session up to 10 seconds to exit.
     /// </summary>
     private static void WaitForOldCopy()
     {
@@ -62,7 +62,7 @@ public static class Program
             using (p)
             {
                 try { if (p.Id != self.Id && p.SessionId == self.SessionId) p.WaitForExit(10_000); }
-                catch (Exception ex) { Log.Warn("Could not wait for the old copy of Jemur", ex); }
+                catch (Exception ex) { Log.Warn("Could not wait for the old copy of Clothesline", ex); }
             }
         }
     }

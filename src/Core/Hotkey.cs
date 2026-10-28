@@ -1,6 +1,6 @@
 using System.Windows.Input;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 /// <summary>A global shortcut such as "Ctrl+Alt+S". Parsing and formatting are culture-independent.</summary>
 public readonly record struct Hotkey(ModifierKeys Modifiers, Key Key)

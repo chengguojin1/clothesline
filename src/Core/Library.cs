@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace Jemur.Core;
+namespace Clothesline.Core;
 
 /// <summary>
 /// The model: what is on the line and what has been discarded. Views (the line, the control panel)
@@ -50,7 +50,7 @@ internal sealed class Library
 
     // ───────────── persistence ─────────────
 
-    public void Load(int keepDiscardedDays, string defaultRopeName = "Jemuran")
+    public void Load(int keepDiscardedDays, string defaultRopeName = "Clotheslinean")
     {
         _dataDir = AppPaths.Data;
         try
@@ -394,7 +394,7 @@ internal sealed class Library
         DeleteOwned(item, item.Link?.Image);
     }
 
-    /// <summary>Deletes a picture Jemur made (screenshot, a note's picture, a link preview), only if no other item still points at it.</summary>
+    /// <summary>Deletes a picture Clothesline made (screenshot, a note's picture, a link preview), only if no other item still points at it.</summary>
     public void DeleteOwned(HangItem owner, string? path)
     {
         if (!AppPaths.IsOwnedShot(path)) return;

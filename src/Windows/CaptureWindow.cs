@@ -4,11 +4,11 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using Jemur.Core;
-using Jemur.Interop;
-using Jemur.UI;
+using Clothesline.Core;
+using Clothesline.Interop;
+using Clothesline.UI;
 
-namespace Jemur.Windows;
+namespace Clothesline.Windows;
 
 /// <summary>
 /// Frozen image of one monitor. Drag to select an area, click a highlighted window to take just that
