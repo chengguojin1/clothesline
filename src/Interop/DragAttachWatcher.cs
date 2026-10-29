@@ -92,13 +92,16 @@ internal sealed class DragAttachWatcher : IDisposable
             {
                 if (msg == WM_LBUTTONDOWN)
                 {
-                    var hwnd = Native.WindowFromPoint(data.pt);
-                    hwnd = Native.GetAncestor(hwnd, Native.GA_ROOT);
+                    var under = Native.WindowFromPoint(data.pt);
+                    var hwnd = Native.GetAncestor(under, Native.GA_ROOT);
                     if (hwnd != IntPtr.Zero && hwnd != Native.Handle(_slot) && Native.IsWindowVisible(hwnd))
                     {
+                        // Windows 11 apps (Notepad, Explorer, Settings, anything WinUI) put a separate
+                        // child window over the title bar and answer HTCAPTION themselves, while the top
+                        // level window answers HTCLIENT for the same point. Ask the window under the
+                        // cursor first, then fall back to the top level one.
                         IntPtr lparam = (IntPtr)((data.pt.Y << 16) | (data.pt.X & 0xFFFF));
-                        var ht = SendMessage(hwnd, WM_NCHITTEST, IntPtr.Zero, lparam);
-                        if (ht.ToInt32() == HTCAPTION)
+                        if (IsCaption(under, lparam) || (under != hwnd && IsCaption(hwnd, lparam)))
                         {
                             _tracking = true;
                             _dragHwnd = hwnd;
@@ -144,6 +147,9 @@ internal sealed class DragAttachWatcher : IDisposable
         }
         return CallNextHookEx(_hook, nCode, wParam, lParam);
     }
+
+    private static bool IsCaption(IntPtr hwnd, IntPtr screenPoint) =>
+        hwnd != IntPtr.Zero && SendMessage(hwnd, WM_NCHITTEST, IntPtr.Zero, screenPoint).ToInt32() == HTCAPTION;
 
     public void Dispose() => Stop();
 
@@ -206,15 +212,19 @@ internal sealed class DragAttachWatcher : IDisposable
                 int len = Native.GetWindowTextLength(hwnd);
                 var buf = new char[Math.Max(1, len + 1)];
                 Native.GetWindowText(hwnd, buf, buf.Length);
-                string title = new string(buf).Trim();
-                // place on the right side of the work area, just under the top
-                Left = work.Right - Width - 24;
-                Top = work.Top + 8;
-                if (!string.IsNullOrEmpty(title)) _title.Text = $"挂起：{title}";
-                else _title.Text = "松开鼠标\n挂起此窗口";
+                string title = new string(buf).TrimEnd('\0', ' ');
+                // The work area arrives in physical pixels while WPF positions windows in device
+                // independent pixels: divide by the monitor scale or the slot lands off screen.
+                double scale = Native.ScaleAt(new Point(work.Left + 1, work.Top + 1));
+                Left = work.Right / scale - Width - 24;
+                Top = work.Top / scale + 8;
+                _title.Text = string.IsNullOrWhiteSpace(title)
+                    ? L.T("dragAttach.hint")
+                    : L.F("dragAttach.title", title.Length > 60 ? title[..59] + "…" : title);
                 Show();
+                Log.Info($"DragAttach: slot {Left:0},{Top:0} {Width:0}x{Height:0} work={work.Left},{work.Top},{work.Right},{work.Bottom}");
             }
-            catch { }
+            catch (Exception ex) { Log.Warn("DragAttach: slot failed", ex); }
         }
     }
 }

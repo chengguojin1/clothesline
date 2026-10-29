@@ -22,6 +22,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
   source window is minimised so the clothesline takes its place. Clicking the card restores the window.
 - Window titles were losing their last character: `GetWindowText` writes at most `length - 1` characters, so
   the buffer must be one larger than `GetWindowTextLength` reports.
+- Dragging a Windows 11 app (Notepad, Explorer, Settings, anything WinUI) no longer fails to hang: those
+  apps draw their own title bar in a child window that answers `HTCAPTION`, while the top level window
+  answers `HTCLIENT` for the same point. The hit test now asks the window under the cursor first.
+- The "hang this window" slot landed off screen on a display scaled above 100%: the work area is in
+  physical pixels but WPF positions windows in device independent pixels.
+- The slot's label is translated instead of hard-coded Chinese, so every language shows its own text.
 
 ## [0.4.0] - 2026-10-20
 

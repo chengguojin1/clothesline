@@ -41,6 +41,8 @@
   "card.resize": "调整大小",
   "kind.note": "便签",
   "liveWindow.gone": "窗口已关闭 — 点击重新打开",
+  "dragAttach.title": "挂起：{0}",
+  "dragAttach.hint": "松开鼠标\n挂起此窗口",
 
   "note.empty": "空便签",
   "note.placeholder": "写点什么…",
