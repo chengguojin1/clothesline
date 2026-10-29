@@ -310,7 +310,8 @@ internal sealed class PinWindow : Window
         bool click = !_dragging && !_holdFired;
         EndPress();
         e.Handled = true;
-        if (click) _app.Spotlight(Item);
+        // a live-window card is an app launcher, not something to spotlight
+        if (click) { if (Item.Kind == ItemKind.LiveWindow) _app.ActivateApp(Item); else _app.Spotlight(Item); }
     }
 
     /// <summary>Ends a press; a drag is saved here, on mouse up (or when capture is lost), never while moving.</summary>
@@ -393,7 +394,8 @@ internal sealed class PinWindow : Window
         _holdFired = true;
         EndPress();
         Card.Pulse();
-        if (Item.Kind == ItemKind.Image) _app.Markup(Item);
+        if (Item.Kind == ItemKind.LiveWindow) _app.ActivateApp(Item);
+        else if (Item.Kind == ItemKind.Image) _app.Markup(Item);
         else _app.Spotlight(Item);
     }
 }

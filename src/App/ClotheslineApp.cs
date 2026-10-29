@@ -31,6 +31,7 @@ internal sealed class ClotheslineApp
     private readonly bool _background;
     private HotkeyManager _hotkeys = null!;
     private TrayIcon _tray = null!;
+    private DragAttachWatcher? _dragAttach;
     private HttpClient? _updateHttp;
     private UpdateCoordinator? _updates;
     private HttpClient? _downloadHttp;
@@ -143,6 +144,10 @@ internal sealed class ClotheslineApp
         var failed = BindHotkeys();
         if (failed.Count > 0) _tray.Notify("Clothesline", L.F("tray.shortcutsTaken", string.Join(", ", failed)), warning: true);
 
+        _dragAttach = new DragAttachWatcher(HangLiveWindow, OnDragEnterHotZone, OnDragLeaveHotZone);
+        _dragAttach.Start();
+        Log.Info("DragAttach watcher started");
+
         ListenForSecondInstance();
 
         if (!Settings.Welcomed)
@@ -172,6 +177,7 @@ internal sealed class ClotheslineApp
         _downloadHttp?.Dispose();
         _linkHttp?.Dispose();
         _hotkeys?.Dispose();
+        _dragAttach?.Dispose();
         _tray?.Dispose();
         Log.Info("Clothesline stopped");
     }
@@ -608,7 +614,8 @@ internal sealed class ClotheslineApp
     /// <summary>Pick a window and hang its live thumbnail on the line.</summary>
     public async Task TakeWindow()
     {
-        if (_capturing) return;
+        Log.Info("TakeWindow invoked");
+        if (_capturing) { Log.Info("TakeWindow skipped: already capturing"); return; }
         EnsureVisible(animate: false);
         _capturing = true;
         try
@@ -623,16 +630,22 @@ internal sealed class ClotheslineApp
             if (picker.Result != IntPtr.Zero)
             {
                 int len = Native.GetWindowTextLength(picker.Result);
-                var buf = new char[Math.Max(1, len)];
+                var buf = new char[Math.Max(1, len + 1)];
                 Native.GetWindowText(picker.Result, buf, buf.Length);
-                string title = new string(buf).Trim();
+                string title = new string(buf).TrimEnd('\0', ' ');
+                string? exe = Native.GetProcessPath(picker.Result);
+                string? shot = SnapshotWindow(picker.Result);
+                Log.Info($"TakeWindow: {picker.Result} '{title}' exe={exe} shot={shot}");
                 Hang(new HangItem
                 {
                     Kind = ItemKind.LiveWindow,
                     RuntimeHwnd = picker.Result,
                     WindowTitle = title,
+                    ProcessPath = exe,
+                    File = shot,
                 });
                 Line.HoldOpen(2000);
+                Native.ShowWindow(picker.Result, Native.SW_MINIMIZE);
             }
         }
         catch (Exception ex)
@@ -653,6 +666,64 @@ internal sealed class ClotheslineApp
     {
         item.RopeId = ActiveRope;
         Library.Add(item);
+    }
+
+    /// <summary>Hang an already-chosen live window (called by drag-drop or the picker).</summary>
+    private void HangLiveWindow(IntPtr hwnd)
+    {
+        try
+        {
+            if (hwnd == IntPtr.Zero || !Native.IsWindow(hwnd)) return;
+            int len = Native.GetWindowTextLength(hwnd);
+            var buf = new char[Math.Max(1, len + 1)];
+            Native.GetWindowText(hwnd, buf, buf.Length);
+            string title = new string(buf).TrimEnd('\0', ' ');
+            string? exe = Native.GetProcessPath(hwnd);
+            string? shot = SnapshotWindow(hwnd);
+            Log.Info($"HangLiveWindow: {hwnd} '{title}' exe={exe} shot={shot}");
+            Hang(new HangItem
+            {
+                Kind = ItemKind.LiveWindow,
+                RuntimeHwnd = hwnd,
+                WindowTitle = title,
+                ProcessPath = exe,
+                File = shot,
+            });
+            Line.HoldOpen(2000);
+            // once it is on the line, tuck the source window away so the line takes its place
+            Native.ShowWindow(hwnd, Native.SW_MINIMIZE);
+        }
+        catch (Exception ex) { Log.Error("HangLiveWindow failed", ex); }
+    }
+
+    /// <summary>Grabs a PNG of a window before it is minimised, so its card shows what it looked like. Null on failure.</summary>
+    private static string? SnapshotWindow(IntPtr hwnd)
+    {
+        try
+        {
+            var bmp = ScreenCapture.CaptureWindow(hwnd);
+            if (bmp == null) return null;
+            var path = Images.NewShotPath();
+            Images.SavePng(bmp, path);
+            return path;
+        }
+        catch (Exception ex) { Log.Warn("SnapshotWindow failed", ex); return null; }
+    }
+
+    /// <summary>A window is being dragged into the top hot zone: bring the clothesline out so the user can see where to hang.</summary>
+    private void OnDragEnterHotZone()
+    {
+        Log.Info("DragAttach: entered hot zone, summoning line");
+        if (InDesktopMode) return; // no line to summon in desktop mode
+        EnsureVisible(animate: true);
+        Line.HoldOpen(3000);
+    }
+
+    /// <summary>The drag left the hot zone without releasing: let the line tuck back on its own.</summary>
+    private void OnDragLeaveHotZone()
+    {
+        Log.Info("DragAttach: left hot zone");
+        // HoldOpen already set a timeout; the line's own auto-hide takes it from here.
     }
 
     public void NewNote()
@@ -781,6 +852,99 @@ internal sealed class ClotheslineApp
     }
 
     // ───────────── item actions ─────────────
+
+    /// <summary>
+    /// A LiveWindow card is an app launcher: clicking it brings the app's window to the front
+    /// (restoring it from the taskbar if minimised), or re-launches the app from its saved exe
+    /// path if the window has been closed since it was hung.
+    /// </summary>
+    public void ActivateApp(HangItem item)
+    {
+        if (item.Kind != ItemKind.LiveWindow) return;
+        Log.Info($"ActivateApp: '{item.WindowTitle}' hwnd={item.RuntimeHwnd} exe={item.ProcessPath}");
+        // live window: bring it forward if it still exists
+        if (item.RuntimeHwnd != IntPtr.Zero && Native.IsWindow(item.RuntimeHwnd))
+        {
+            Native.ForceForegroundHwnd(item.RuntimeHwnd);
+            RefreshSnapshotSoon(item); // keep the card's picture in step with the window
+            return;
+        }
+        // the window was closed after hanging — relaunch the app from its exe path
+        if (!string.IsNullOrWhiteSpace(item.ProcessPath) && File.Exists(item.ProcessPath))
+        {
+            try
+            {
+                var p = Process.Start(new ProcessStartInfo(item.ProcessPath) { UseShellExecute = true });
+                if (p != null)
+                {
+                    // give it a moment to create its window, then remember the new HWND so the next
+                    // click re-uses it instead of spawning a second instance
+                    _ = Task.Delay(1500).ContinueWith(_ =>
+                    {
+                        _wpf.Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            var newHwnd = FindWindowForProcess(p.Id);
+                            if (newHwnd != IntPtr.Zero)
+                            {
+                                item.RuntimeHwnd = newHwnd;
+                                int len = Native.GetWindowTextLength(newHwnd);
+                                var buf = new char[Math.Max(1, len + 1)];
+                                Native.GetWindowText(newHwnd, buf, buf.Length);
+                                item.WindowTitle = new string(buf).TrimEnd('\0', ' ');
+                                // replace the stale snapshot with a fresh one from the relaunched window
+                                var oldShot = item.File;
+                                var newShot = SnapshotWindow(newHwnd);
+                                if (newShot != null) { item.File = newShot; Library.DeleteOwned(item, oldShot); }
+                                ViewOf(item)?.RefreshVisual();
+                                Library.Touch(item);
+                            }
+                        }));
+                    });
+                }
+            }
+            catch (Exception ex) { Log.Warn("ActivateApp: relaunch failed", ex); }
+            return;
+        }
+        // nothing to bring forward and nothing to relaunch: nudge the card and toast
+        var c = ViewOf(item);
+        if (c != null) { c.Pulse(); c.Toast(L.T("liveWindow.gone")); }
+    }
+
+    /// <summary>Re-snapshots a window shortly after it is brought forward, so its card shows the latest view.</summary>
+    private void RefreshSnapshotSoon(HangItem item)
+    {
+        var hwnd = item.RuntimeHwnd;
+        _ = Task.Delay(1200).ContinueWith(_ =>
+        {
+            _wpf.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!Native.IsWindow(hwnd)) return;
+                var old = item.File;
+                var shot = SnapshotWindow(hwnd);
+                if (shot == null) return;
+                item.File = shot;
+                Library.DeleteOwned(item, old);
+                ViewOf(item)?.RefreshVisual();
+                Library.Touch(item);
+            }));
+        });
+    }
+
+    /// <summary>Finds the first visible top-level window owned by a process id (best-effort).</summary>
+    private static IntPtr FindWindowForProcess(int pid)
+    {
+        IntPtr found = IntPtr.Zero;
+        Native.EnumWindowsProc? cb = null;
+        cb = (h, _) =>
+        {
+            Native.GetWindowThreadProcessId(h, out uint wpid);
+            if (wpid == pid && Native.IsWindowVisible(h) && Native.GetWindowTextLength(h) > 0) { found = h; return false; }
+            return true;
+        };
+        Native.EnumWindows(cb, IntPtr.Zero);
+        GC.KeepAlive(cb);
+        return found;
+    }
 
     public void Spotlight(HangItem item)
     {

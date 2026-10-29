@@ -40,6 +40,7 @@
   "kind.screenshot": "Screenshot",
   "card.resize": "Resize",
   "kind.note": "Note",
+  "liveWindow.gone": "Window closed — click to reopen",
 
   "note.empty": "Empty note",
   "note.placeholder": "Write something…",

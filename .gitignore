@@ -20,6 +20,9 @@ Thumbs.db
 # Test results
 TestResults/
 
+# Local agent workspace data
+.workbuddy/
+
 # Cloudflare build tools and local state
 .dotnet/
 .nsis/

@@ -40,6 +40,7 @@
   "kind.screenshot": "截图",
   "card.resize": "调整大小",
   "kind.note": "便签",
+  "liveWindow.gone": "窗口已关闭 — 点击重新打开",
 
   "note.empty": "空便签",
   "note.placeholder": "写点什么…",

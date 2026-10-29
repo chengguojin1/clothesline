@@ -31,8 +31,6 @@ internal sealed partial class LineWindow : Window
     private readonly Canvas _stage = new();
     private readonly Path _rope, _ropeShadow, _ropeTwist;
     private readonly List<CardView> _cards = new();
-    private readonly Dictionary<CardView, LiveThumbnail> _thumbs = new();
-    private readonly DispatcherTimer _thumbPoll;
     private readonly RopeTag _tag = new();
     private readonly DispatcherTimer _hover, _hold, _shrink;
 
@@ -85,13 +83,8 @@ internal sealed partial class LineWindow : Window
         {
             Native.MakeToolWindow(this, noActivate: true);
             HwndSource.FromHwnd(Native.Handle(this))?.AddHook(WndProc);
-            // register any LiveWindow cards added before the HWND existed
-            foreach (var c in _cards) AttachThumb(c);
         };
         SizeChanged += (_, _) => { DrawRope(); LayoutCards(); };
-
-        _thumbPoll = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromMilliseconds(500) };
-        _thumbPoll.Tick += (_, _) => PollThumbs();
 
         _hover = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromMilliseconds(90) };
         _hover.Tick += (_, _) => UpdateHover();
@@ -232,7 +225,6 @@ internal sealed partial class LineWindow : Window
         _cards.Add(c);
         _stage.Children.Add(c);
         LayoutCard(c);
-        AttachThumb(c);
         if (!IsVisible && IsLoaded && !_lifted && StaysOut) Show();
         if (_lifted) c.Slide.Y = LiftedY;
         else if (!_expanded) c.Slide.Y = CollapsedOffset(c);
@@ -250,7 +242,6 @@ internal sealed partial class LineWindow : Window
     private void RemoveCard(CardView c)
     {
         c.Slide.BeginAnimation(TranslateTransform.YProperty, null);
-        DetachThumb(c);
         _cards.Remove(c);
         _stage.Children.Remove(c);
     }
@@ -626,71 +617,9 @@ internal sealed partial class LineWindow : Window
         if (dt <= 0) return;
         bool any = false;
         foreach (var c in _cards) any |= c.Step(dt);
-        if (_thumbs.Count > 0) SyncThumbs();
         if (any) return;
         CompositionTarget.Rendering -= OnFrame; // stop rendering entirely when nothing moves
         _animating = false;
-    }
-
-    // ───────────── live window thumbnails ─────────────
-
-    private void AttachThumb(CardView c)
-    {
-        if (c.Item.Kind != ItemKind.LiveWindow || c.LiveHost == null) return;
-        if (_thumbs.ContainsKey(c)) return;
-        IntPtr dest = Native.Handle(this);
-        if (dest == IntPtr.Zero) return; // SourceInitialized hasn't run yet; it will re-attach
-        IntPtr src = c.Item.RuntimeHwnd;
-        if (src == IntPtr.Zero || !Native.IsWindow(src)) return;
-        try
-        {
-            var thumb = new LiveThumbnail(dest, src);
-            _thumbs[c] = thumb;
-            _thumbPoll.Start();
-            SyncThumb(c, thumb);
-        }
-        catch (Exception ex) { Log.Warn("AttachThumb failed", ex); }
-    }
-
-    private void DetachThumb(CardView c)
-    {
-        if (_thumbs.TryGetValue(c, out var thumb))
-        {
-            thumb.Dispose();
-            _thumbs.Remove(c);
-            if (_thumbs.Count == 0) _thumbPoll.Stop();
-        }
-    }
-
-    private void SyncThumbs()
-    {
-        foreach (var (c, thumb) in _thumbs) SyncThumb(c, thumb);
-    }
-
-    private void SyncThumb(CardView c, LiveThumbnail thumb)
-    {
-        var host = c.LiveHost;
-        if (host == null || !host.IsLoaded) return;
-        var p = host.TransformToAncestor(this).Transform(new Point(0, 0));
-        var dpi = VisualTreeHelper.GetDpi(this);
-        double s = dpi.DpiScaleX;
-        var rect = new Rect(p.X * s, p.Y * s, host.ActualWidth * s, host.ActualHeight * s);
-        thumb.Update(rect);
-    }
-
-    private void PollThumbs()
-    {
-        // drop cards whose source window is gone
-        foreach (var c in _thumbs.Keys.ToList())
-        {
-            if (!_thumbs[c].SourceAlive)
-            {
-                DetachThumb(c);
-                _cards.Remove(c);
-                _stage.Children.Remove(c);
-                _app.Library.Drop(c.Item);
-            }
-        }
     }
 
     // ───────────── click / hold / drag ─────────────
@@ -751,6 +680,8 @@ internal sealed partial class LineWindow : Window
         e.Handled = true;
         if (_holdFired) return;
         if (_dragging) { _dragging = false; DropCard(c); return; }
+        // A live-window card is an app launcher: click brings the app forward, not a spotlight.
+        if (c.Item.Kind == ItemKind.LiveWindow) { _app.ActivateApp(c.Item); _app.Line.HoldOpen(1200); return; }
         _app.Spotlight(c.Item);
     }
 
@@ -763,6 +694,7 @@ internal sealed partial class LineWindow : Window
         c.ReleaseMouseCapture();
         _pressed = null;
         c.Pulse();
+        if (c.Item.Kind == ItemKind.LiveWindow) { _app.ActivateApp(c.Item); return; }
         if (c.Item.Kind == ItemKind.Image) _app.Markup(c.Item);
         else _app.Spotlight(c.Item);
     }

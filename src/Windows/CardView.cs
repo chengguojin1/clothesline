@@ -31,12 +31,11 @@ internal sealed class CardView : Grid
     private readonly Border _paper;
     private readonly Grid _paperHost;
     private readonly Image? _image;
+    private readonly Image? _appIcon;   // the app icon shown on a LiveWindow launcher tile
     private readonly TextBlock? _noteText;
     private readonly TextBlock? _caption, _linkLine;
     private readonly Image? _thumb;
     private string? _thumbPath;
-    private readonly Border? _liveHost;
-    private readonly Border? _liveFrame;
     private readonly TextBlock? _liveTitle;
     private readonly Border _toast;
     private readonly TextBlock _toastText;
@@ -88,12 +87,31 @@ internal sealed class CardView : Grid
         }
         else if (item.Kind == ItemKind.LiveWindow)
         {
+            // An app-launcher card: a snapshot of the window (taken when it was hung) with its title on
+            // the bottom strip. When no snapshot exists yet, the app's icon stands in. Clicking the card
+            // brings the app's window to the front (or re-launches it if it was closed).
             _paper.Background = Brushes.White;
             _paper.Padding = new Thickness(6, 6, 6, 15);
             Width = Math.Round(156 * Scale) + 12;
             _paper.Height = Math.Round(100 * Scale) + 21;
-            _liveHost = new Border { Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)), ClipToBounds = true };
-            _liveFrame = new Border { Child = _liveHost, ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)) };
+
+            _image = new Image { Stretch = Stretch.UniformToFill };
+            RenderOptions.SetBitmapScalingMode(_image, BitmapScalingMode.HighQuality);
+            _appIcon = new Image
+            {
+                Stretch = Stretch.Uniform,
+                Width = Math.Round(46 * Scale), Height = Math.Round(46 * Scale),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                Visibility = Visibility.Collapsed,
+            };
+            RenderOptions.SetBitmapScalingMode(_appIcon, BitmapScalingMode.HighQuality);
+
+            var frame = new Border { ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xEC)) };
+            var inner = new Grid();
+            inner.Children.Add(_image);
+            inner.Children.Add(_appIcon);
+            frame.Child = inner;
+
             _liveTitle = new TextBlock
             {
                 FontFamily = Theme.Hand, FontSize = 10.5, Foreground = Theme.Ink, TextTrimming = TextTrimming.CharacterEllipsis,
@@ -101,9 +119,10 @@ internal sealed class CardView : Grid
                 Text = item.WindowTitle ?? "",
             };
             var shot = new Grid();
-            shot.Children.Add(_liveFrame);
+            shot.Children.Add(frame);
             shot.Children.Add(_liveTitle);
             _paper.Child = shot;
+            if (thumbnail) RefreshVisual();
         }
         else
         {
@@ -159,8 +178,30 @@ internal sealed class CardView : Grid
     public double PaperHeight => _paper.Height;
     public double TotalHeight => PinHeight - PinOverlap + PaperHeight;
 
-    /// <summary>The placeholder host for a LiveWindow card; null for Image/Note cards.</summary>
-    public Border? LiveHost => _liveHost;
+    /// <summary>The Image that shows a LiveWindow card's app icon; null for Image/Note cards.</summary>
+    public Image? AppIconImage => Item.Kind == ItemKind.LiveWindow ? _appIcon : null;
+
+    /// <summary>
+    /// Shows a LiveWindow card's snapshot if one exists (and lays the card out at the snapshot's aspect),
+    /// otherwise falls back to the app's icon on a plain tile. Call after the snapshot or exe path changes.
+    /// </summary>
+    public void RefreshVisual()
+    {
+        if (Item.Kind != ItemKind.LiveWindow || _image == null || _appIcon == null) return;
+        bool hasShot = !string.IsNullOrWhiteSpace(Item.File) && System.IO.File.Exists(Item.File);
+        if (hasShot)
+        {
+            _appIcon.Visibility = Visibility.Collapsed;
+            _image.Visibility = Visibility.Visible;
+            ReloadImage(); // decodes the PNG and sizes the paper to its aspect
+            return;
+        }
+        _image.Visibility = Visibility.Collapsed;
+        _image.Source = null;
+        SetPaperSize(new Size(Math.Round(156 * Scale), Math.Round(100 * Scale)));
+        _appIcon.Visibility = Visibility.Visible;
+        _appIcon.Source = AppIcon.For(Item.ProcessPath);
+    }
 
     private static readonly Brush[] ShadowBrushes =
     {

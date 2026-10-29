@@ -18,6 +18,8 @@ public sealed class HangItem
     public LinkCard? Link { get; set; }
     /// <summary>Window title shown on a LiveWindow card. The source HWND itself is runtime-only and not persisted.</summary>
     public string? WindowTitle { get; set; }
+    /// <summary>The source app's executable path for a LiveWindow card. Persisted so the app can be re-launched after its window closes.</summary>
+    public string? ProcessPath { get; set; }
     /// <summary>Horizontal position along the line, 0..1, so the layout survives resolution changes.</summary>
     public double Position { get; set; } = -1;
     public int Color { get; set; }

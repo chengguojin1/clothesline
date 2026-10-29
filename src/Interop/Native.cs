@@ -124,10 +124,13 @@ internal static partial class Native
     [LibraryImport("user32.dll")] public static partial IntPtr GetAncestor(IntPtr h, uint flags);
     public const uint GA_ROOT = 2;
     [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] public static partial IntPtr GetWindowLongPtrW(IntPtr h, int i);
-    [LibraryImport("user32.dll")] public static partial int GetWindowTextLength(IntPtr h);
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextLengthW")] public static partial int GetWindowTextLength(IntPtr h);
     [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW", StringMarshalling = StringMarshalling.Utf16)]
     public static partial int GetWindowText(IntPtr h, [Out] char[] buf, int max);
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool IsWindow(IntPtr h);
+    public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr param);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EnumWindows(EnumWindowsProc cb, IntPtr param);
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool UnhookWinEvent(IntPtr hWinEventHook);
     public const uint EVENT_OBJECT_DESTROY = 0x8001, EVENT_OBJECT_SHOW = 0x8002, EVENT_OBJECT_HIDE = 0x8003, WINEVENT_OUTOFCONTEXT = 0x0;
     public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
@@ -136,6 +139,17 @@ internal static partial class Native
     [LibraryImport("kernel32.dll")] public static partial IntPtr GetCurrentProcess();
     [LibraryImport("kernel32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SetProcessWorkingSetSizeEx(IntPtr proc, nint min, nint max, uint flags);
+
+    // ───────────── process / window launching ─────────────
+    public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+    [LibraryImport("kernel32.dll", EntryPoint = "OpenProcess", SetLastError = true)] public static partial IntPtr OpenProcessHandle(uint access, [MarshalAs(UnmanagedType.Bool)] bool inherit, uint pid);
+    [DllImport("kernel32.dll", EntryPoint = "QueryFullProcessImageNameW", SetLastError = true, CharSet = CharSet.Unicode)] [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool QueryFullProcessPath(IntPtr h, [MarshalAs(UnmanagedType.Bool)] bool nameEx, System.Text.StringBuilder buf, ref uint size);
+    [LibraryImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool CloseHandle(IntPtr h);
+    [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ShowWindow(IntPtr h, int cmd);
+    public const int SW_RESTORE = 9, SW_SHOW = 5, SW_SHOWNORMAL = 1, SW_MINIMIZE = 6;
 
     // ───────────── helpers ─────────────
 
@@ -184,6 +198,76 @@ internal static partial class Native
             BringWindowToTop(h);
             SetForegroundWindow(h);
             w.Activate();
+        }
+        finally { if (attached) AttachThreadInput(me, fgThread, false); }
+    }
+
+    // ───────────── shell32 — file/EXE icons ─────────────
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct SHFILEINFO
+    {
+        public IntPtr hIcon;
+        public int iIcon;
+        public uint dwAttributes;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szDisplayName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string szTypeName;
+    }
+    public const uint SHGFI_ICON = 0x100, SHGFI_LARGEICON = 0x0, SHGFI_SMALLICON = 0x1, SHGFI_USEFILEATTRIBUTES = 0x10;
+    [DllImport("shell32.dll", EntryPoint = "SHGetFileInfoW", CharSet = CharSet.Unicode)]
+    public static extern IntPtr SHGetFileInfo(string path, uint attr, ref SHFILEINFO info, int cbFileInfo, uint flags);
+
+    [DllImport("kernel32.dll", EntryPoint = "QueryDosDeviceW", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern uint QueryDosDevice(string? dev, System.Text.StringBuilder buf, uint size);
+
+    /// <summary>The process executable path of the process that owns a window, or null when it can't be read.</summary>
+    public static string? GetProcessPath(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return null;
+        GetWindowThreadProcessId(hwnd, out uint pid);
+        if (pid == 0) return null;
+        IntPtr h = OpenProcessHandle(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == IntPtr.Zero) return null;
+        try
+        {
+            var buf = new System.Text.StringBuilder(1024);
+            uint size = (uint)buf.Capacity;
+            if (!QueryFullProcessPath(h, true, buf, ref size)) return null;
+            string nt = buf.ToString();
+            return NtPathToWin32(nt);
+        }
+        finally { CloseHandle(h); }
+    }
+
+    /// <summary>Turns an NT device path (\Device\HarddiskVolume3\...) into a Win32 drive path (C:\...).</summary>
+    private static string NtPathToWin32(string nt)
+    {
+        if (string.IsNullOrEmpty(nt) || nt.Length >= 2 && nt[1] == ':') return nt; // already C:\...
+        for (char d = 'A'; d <= 'Z'; d++)
+        {
+            var dev = new System.Text.StringBuilder(512);
+            uint n = QueryDosDevice(d + ":", dev, (uint)dev.Capacity);
+            if (n == 0) continue;
+            string name = dev.ToString();
+            if (name.Length > 0 && nt.StartsWith(name, StringComparison.OrdinalIgnoreCase))
+                return d + ":\\" + nt.Substring(name.Length).TrimStart('\\');
+        }
+        return nt; // can't resolve — return as-is
+    }
+
+    /// <summary>Brings any window HWND to the foreground, restoring it from the taskbar if minimised.</summary>
+    public static void ForceForegroundHwnd(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
+        var fg = GetForegroundWindow();
+        if (fg == hwnd) { SetForegroundWindow(hwnd); return; }
+        uint fgThread = GetWindowThreadProcessId(fg, IntPtr.Zero), me = GetCurrentThreadId();
+        bool attached = fgThread != 0 && fgThread != me && AttachThreadInput(me, fgThread, true);
+        try
+        {
+            if (!attached) { keybd_event(0x12, 0, 0, UIntPtr.Zero); keybd_event(0x12, 0, 2, UIntPtr.Zero); }
+            BringWindowToTop(hwnd);
+            SetForegroundWindow(hwnd);
         }
         finally { if (attached) AttachThreadInput(me, fgThread, false); }
     }

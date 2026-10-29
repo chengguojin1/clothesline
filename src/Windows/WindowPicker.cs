@@ -53,6 +53,20 @@ internal sealed class WindowPicker : Window
             Child = _tagText, Visibility = Visibility.Collapsed, IsHitTestVisible = false,
         };
         canvas.Children.Add(_tag);
+
+        var hint = new TextBlock
+        {
+            Text = "移动鼠标选择窗口 · 点击挂起 · Esc 取消",
+            Foreground = Brushes.White, FontSize = 16, FontWeight = FontWeights.SemiBold,
+            FontFamily = Theme.Font,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 40, 0, 0),
+            IsHitTestVisible = false,
+        };
+        Canvas.SetLeft(hint, 0); Canvas.SetTop(hint, 0);
+        hint.SetValue(Canvas.TopProperty, 40.0);
+        canvas.Children.Add(hint);
         Content = canvas;
 
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
@@ -90,7 +104,7 @@ internal sealed class WindowPicker : Window
         _hl.Visibility = Visibility.Visible;
 
         int len = Native.GetWindowTextLength(hwnd);
-        var buf = new char[Math.Max(1, len)];
+        var buf = new char[Math.Max(1, len + 1)];
         Native.GetWindowText(hwnd, buf, buf.Length);
         string title = new string(buf).Trim();
         if (string.IsNullOrEmpty(title)) title = "(untitled)";

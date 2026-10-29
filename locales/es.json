@@ -35,6 +35,7 @@
   "kind.screenshot": "Captura de pantalla",
   "card.resize": "Cambiar tamaño",
   "kind.note": "Nota",
+  "liveWindow.gone": "Ventana cerrada — clic para reabrir",
   "note.empty": "Nota vacía",
   "note.placeholder": "Escribe algo…",
   "note.words_one": "{0} palabra",

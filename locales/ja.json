@@ -35,6 +35,7 @@
   "kind.screenshot": "スクリーンショット",
   "card.resize": "サイズ変更",
   "kind.note": "メモ",
+  "liveWindow.gone": "ウィンドウが閉じました — クリックで再開",
   "note.empty": "空のメモ",
   "note.placeholder": "ここに入力…",
   "note.words_one": "{0} 語",

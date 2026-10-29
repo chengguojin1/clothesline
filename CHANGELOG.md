@@ -9,6 +9,19 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Shake a desktop card while dragging it: a card in a pile shakes loose, a loose card tidies every card on that monitor into rows.
 - Screenshots take a note, written in the polaroid's bottom strip.
 - Notes take a picture (Ctrl+V, drop a file, or the picture button) and show a preview of the first web address they contain.
+- Hang live application windows on the line as app launchers. Drag any window by its title bar to the
+  top of the screen: the clothesline is summoned and a "hangable" slot appears on the right side. Release
+  the mouse in the hot zone and the window is snapped to a picture, hung on the line as a card showing that
+  picture, and the source window is minimised. Clicking the card brings the window back to the front (and
+  refreshes the picture); if the window was closed, the app is re-launched from its saved executable path.
+  App launchers persist across restarts, so the line doubles as a quick app bar. Also works on the desktop
+  (Alt+Shift+M), and via the Alt+Shift+E window picker.
+
+### Fixed
+- Live window cards show a snapshot of the window (taken as it is hung) instead of a blank tile, and the
+  source window is minimised so the clothesline takes its place. Clicking the card restores the window.
+- Window titles were losing their last character: `GetWindowText` writes at most `length - 1` characters, so
+  the buffer must be one larger than `GetWindowTextLength` reports.
 
 ## [0.4.0] - 2026-10-20
 
